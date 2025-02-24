@@ -7,7 +7,7 @@ import logging
 from bot.config.settings import SUCCESS_MESSAGES, ERROR_MESSAGES, logger
 from bot.config.shop_items import SHOP_ITEMS, PREMIUM_SHOP_ITEMS, ShopManager
 from bot.utils.keyboard import generar_botones
-from bot.utils.save_system import save_game_data
+from bot.utils.save_system import save_game_data, load_game_data
 from bot.config.premium_settings import PREMIUM_FEATURES
 
 #---------------------------------------------------------------
@@ -38,7 +38,10 @@ async def tienda(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        player = context.bot_data['players'][user_id]
+        player = load_game_data(str(user_id))
+        if player is None:
+            await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            return
         if not player or 'mascota' not in player or 'oro' not in player['mascota']:
             logger.error(f"Invalid or missing player data for user_id: {user_id}")
             if update.callback_query:
@@ -134,7 +137,10 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name:
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        player = context.bot_data['players'][user_id]
+        player = load_game_data(str(user_id))
+        if player is None:
+            await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            return
         mascota = player['mascota']
         
         # Get base item and calculate current level stats
@@ -163,7 +169,7 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name:
             mascota['oro_hora'] += item['oro_hora']
 
             # Save game data
-            save_game_data(context.bot_data['players'])
+            save_game_data(str(user_id), player)
 
             # Calculate next level stats for display
             next_level = ShopManager.calculate_item_stats(base_item, current_level + 1)
@@ -225,7 +231,7 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name:
 async def comprar_fragmentos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Permite comprar fragmentos de destino con oro"""
     user_id = update.effective_user.id
-    player = context.bot_data['players'].get(user_id)
+    player = load_game_data(str(user_id))
 
     if not player:
         await update.callback_query.message.reply_text("❌ No se encontró tu perfil de jugador.")
@@ -244,7 +250,7 @@ async def comprar_fragmentos(update: Update, context: ContextTypes.DEFAULT_TYPE)
     player["premium_features"]["tickets"] += cantidad  # Aumentar los tickets disponibles
 
     # Guardar los datos
-    save_game_data(context.bot_data['players'])
+    save_game_data(str(user_id), player)
 
     # Mensaje de confirmación
     await update.callback_query.message.reply_text(f"✅ Has comprado {cantidad} Fragmento de Destino.")
@@ -257,7 +263,10 @@ async def premium_shop(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        player = context.bot_data['players'][user_id]
+        player = load_game_data(str(user_id))
+        if player is None:
+            await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            return
 
         header_message = (
             "🌟 Tienda Premium 🌟\n\n"

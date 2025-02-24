@@ -1,5 +1,5 @@
 {
-    "bitoAI.codeCompletion.enableAutoCompletion": true,
+    "bitoAI.codeCompletion.enableAutoCompletion": false,
     "bitoAI.codeCompletion.enableCommentToCode": true,
     "python.analysis.aiCodeActions": {
         "implementAbstractClasses": false

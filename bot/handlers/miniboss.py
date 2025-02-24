@@ -13,7 +13,7 @@ from bot.config.settings import (
     calculate_miniboss_probabilities
 )
 from bot.utils.keyboard import generar_botones
-from bot.utils.save_system import save_game_data
+from bot.utils.save_system import save_game_data, load_game_data
 from bot.config.premium_settings import PREMIUM_FEATURES
 from bot.handlers.ads import retry_combat_ad
 
@@ -107,13 +107,14 @@ async def miniboss_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle miniboss battle initiation."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
+        player = load_game_data(str(user_id))
+        if not player:
             if update.callback_query:
                 await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
             else:
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
-        player = context.bot_data['players'][user_id]
+        
         # Check combat level requirement
         if player["combat_stats"]["level"] < COMBAT_LEVEL_REQUIREMENT:
             mensaje = f"⚠️ Necesitas nivel de combate {COMBAT_LEVEL_REQUIREMENT} para acceder al MiniBoss."
@@ -143,7 +144,7 @@ async def miniboss_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         miniboss_estado[user_id] = inicializar_miniboss(user_id)
         player["mascota"]["oro"] -= MIN_MINIBOSS_GOLD  # Charge entry fee
         player['miniboss_stats']['attempts_today'] += 1
-        save_game_data(context.bot_data['players'])
+        save_game_data(str(user_id), player)
         # Start first battle
         await procesar_combate_miniboss(update, context)
     except Exception as e:
@@ -159,7 +160,10 @@ async def procesar_combate_miniboss(update: Update, context: ContextTypes.DEFAUL
         user_id = update.effective_user.id
         estado_actual = miniboss_estado[user_id]
         enemigo_actual = estado_actual["enemigo_actual"]
-        player = context.bot_data['players'][user_id]
+        player = load_game_data(str(user_id))
+        if not player:
+            await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            return
         # Get victory probability based on combat level
         combat_level = player["combat_stats"]["level"]
         probabilities = calculate_miniboss_probabilities(combat_level)
@@ -236,7 +240,10 @@ async def finalizar_miniboss(update: Update, context: ContextTypes.DEFAULT_TYPE,
     try:
         user_id = update.effective_user.id
         estado_actual = miniboss_estado[user_id]
-        player = context.bot_data['players'][user_id]
+        player = load_game_data(str(user_id))
+        if not player:
+            await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            return
         
         if victoria:
             # Apply rewards
@@ -290,7 +297,7 @@ async def finalizar_miniboss(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         # Clean up miniboss state
         del miniboss_estado[user_id]
-        save_game_data(context.bot_data['players'])
+        save_game_data(str(user_id), player)
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         if update.callback_query:

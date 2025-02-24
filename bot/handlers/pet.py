@@ -17,7 +17,7 @@ from bot.config.settings import (
     MAX_HUNGER
 )
 from bot.utils.keyboard import generar_botones
-from bot.utils.save_system import save_game_data
+from bot.utils.save_system import save_game_data, load_game_data, get_all_user_ids
 from bot.config.premium_settings import PREMIUM_FEATURES
 
 from bot.handlers.combat import exp_needed_for_level
@@ -63,21 +63,22 @@ async def recolectar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle food collection."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
+        player = load_game_data(str(user_id))
+        if not player:
             if update.callback_query:
                 await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
             else:
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        player = context.bot_data['players'][user_id]
+        
         await actualizar_estados(player)
         mascota = player["mascota"]
 
         if mascota["energia"] > 0:
             player["comida"] += 10
             mascota["energia"] -= 10
-            save_game_data(context.bot_data['players'])
+            save_game_data(str(user_id), player)
 
             # Send collection message with image
             with open(IMAGE_PATHS['recolectar'], 'rb') as img_file:
@@ -110,14 +111,15 @@ async def alimentar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle pet feeding."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
+        player = load_game_data(str(user_id))
+        if not player:
             if update.callback_query:
                 await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
             else:
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        player = context.bot_data['players'][user_id]
+        
         await actualizar_estados(player)
         mascota = player["mascota"]
 
@@ -133,7 +135,7 @@ async def alimentar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             base_production = 2 ** (mascota["nivel"] - 1)
             mascota["oro_hora"] = base_production * (1.5 if is_premium else 1.0)
             
-            save_game_data(context.bot_data['players'])
+            save_game_data(str(user_id), player)
 
             # Send feeding message with image
             with open(IMAGE_PATHS['alimentar'], 'rb') as img_file:
@@ -175,14 +177,15 @@ async def estado(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Display pet and player status."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
+        player = load_game_data(str(user_id))
+        if not player:
             if update.callback_query:
                 await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
             else:
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        player = context.bot_data['players'][user_id]
+        
         await actualizar_estados(player)
         
         mascota = player["mascota"]
@@ -240,6 +243,8 @@ async def estado(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=generar_botones()
                 )
 
+        save_game_data(str(user_id), player)
+
     except Exception as e:
         logger.error(f"Error in estado: {e}")
         if update.callback_query:
@@ -251,20 +256,26 @@ async def check_premium_expiry(context: ContextTypes.DEFAULT_TYPE):
     """Background task to check and update premium feature expiration."""
     try:
         current_time = time.time()
-        for user_id, player in context.bot_data.get('players', {}).items():
-            premium_features = player.get('premium_features', {})
-            
-            # Check Premium Status expiry
-            if premium_features.get('premium_status', False):
-                if current_time > premium_features.get('premium_status_expires', 0):
-                    premium_features['premium_status'] = False
-            
-            # Check Auto-collector expiry
-            if premium_features.get('auto_collector', False):
-                if current_time > premium_features.get('auto_collector_expires', 0):
-                    premium_features['auto_collector'] = False
         
-        save_game_data(context.bot_data['players'])
+        # Obtener todos los user_ids de la base de datos
+        user_ids = get_all_user_ids()  # Esta función necesita ser implementada en save_system.py
+        
+        for user_id in user_ids:
+            player = load_game_data(str(user_id))
+            if player:
+                premium_features = player.get('premium_features', {})
+                
+                # Check Premium Status expiry
+                if premium_features.get('premium_status', False):
+                    if current_time > premium_features.get('premium_status_expires', 0):
+                        premium_features['premium_status'] = False
+                
+                # Check Auto-collector expiry
+                if premium_features.get('auto_collector', False):
+                    if current_time > premium_features.get('auto_collector_expires', 0):
+                        premium_features['auto_collector'] = False
+                
+                save_game_data(str(user_id), player)
         
     except Exception as e:
         logger.error(f"Error in premium expiry check: {e}")

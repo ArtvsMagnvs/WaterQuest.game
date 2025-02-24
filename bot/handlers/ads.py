@@ -9,6 +9,7 @@ from telegram.ext import CallbackQueryHandler
 from bot.config.ads_config import AD_CONFIG  # Importar la configuración de anuncios
 from telegram.ext import ConversationHandler
 from typing import Dict, Any
+from bot.utils.save_system import save_game_data, load_game_data
 
 # Your URL of the landing page
 FRONTEND_URL = "https://artvsmagnvs.github.io/WaterQuest.game/"
@@ -57,7 +58,7 @@ async def verify_ad_view(ad_id: str) -> bool:
 async def ads_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Muestra el menú de anuncios con el progreso actual."""
     user_id = update.callback_query.from_user.id
-    player = context.bot_data['players'].get(user_id)
+    player = load_game_data(str(user_id))
     
     if not player:
         await update.callback_query.message.reply_text("❌ Error: Jugador no encontrado.")
@@ -94,7 +95,7 @@ async def ads_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def process_ad_watch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.callback_query.from_user.id
-    player = context.bot_data['players'].get(user_id)
+    player = load_game_data(str(user_id))
     
     if not player:
         await update.callback_query.message.reply_text("❌ Error: Player not found.")
@@ -164,6 +165,8 @@ async def process_ad_watch(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await loading_message.edit_text("❌ Ad view could not be verified. Please try again.")
 
+        save_game_data(str(user_id), player)
+
     except Exception as e:
         logger.error(f"Error in process_ad_watch: {str(e)}")
         await loading_message.edit_text("❌ An unexpected error occurred. Please try again later.")
@@ -194,6 +197,8 @@ async def grant_ad_rewards(player):
     quick_combat_reward = AD_CONFIG['ad_rewards']['watch']['quick_combat']
     player['quick_combats'] = player.get('quick_combats', 0) + quick_combat_reward
     rewards.append(f"+{quick_combat_reward} Quick Combat")
+
+    save_game_data(str(player['user_id']), player)
     
     return rewards
 
@@ -226,6 +231,9 @@ async def check_ad_milestones(update: Update, context: ContextTypes.DEFAULT_TYPE
                     )
                     await update.callback_query.message.reply_text(milestone_message)
                 break
+
+        save_game_data(str(player['user_id']), player)
+
     except Exception as e:
         logger.error(f"Error in check_ad_milestones: {e}")
         await update.callback_query.message.reply_text("❌ An unexpected error occurred. Please try again later.")
@@ -233,7 +241,7 @@ async def check_ad_milestones(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def retry_combat_ad(update: Update, context: ContextTypes.DEFAULT_TYPE, combat_type: str):
     """Maneja el reintento de combate a través de la visualización de anuncios."""
     user_id = update.callback_query.from_user.id
-    player = context.bot_data['players'].get(user_id)
+    player = load_game_data(str(user_id))
     
     if not player:
         await update.callback_query.message.reply_text("❌ Error: Jugador no encontrado.")
@@ -257,7 +265,7 @@ async def retry_combat_ad(update: Update, context: ContextTypes.DEFAULT_TYPE, co
         player["daily_ads"] = player.get("daily_ads", 0) + 1
         
         # Guardar los datos del jugador
-        context.bot_data['players'][user_id] = player
+        save_game_data(str(user_id), player)
         
         await update.callback_query.message.reply_text(
             f"✅ ¡Ahora puedes reintentar el combate de {combat_type}!"

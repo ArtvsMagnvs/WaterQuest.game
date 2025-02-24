@@ -6,18 +6,17 @@ from .keyboard import (
     create_miniboss_keyboard,
     create_confirmation_keyboard,
     create_combat_keyboard,
-    create_portal_keyboard,  # Cambiado de create_lucky_wheel_keyboard
+    create_portal_keyboard,
     create_menu_keyboard
 )
-from .save_system import save_game_data, load_game_data, backup_data, get_save_info
-
-# Comment out TON SDK related imports
-# from .ton_utils import (
-#     initialize_ton_client,
-#     send_transaction,
-#     check_transaction_status, 
-#     get_wallet_balance
-# )
+from .save_system import (
+    save_game_data,
+    load_game_data,
+    backup_data,
+    get_db_connection,
+    create_table,
+    get_all_user_ids
+)
 
 __all__ = [
     # Keyboard functions
@@ -27,18 +26,15 @@ __all__ = [
     'create_miniboss_keyboard',
     'create_confirmation_keyboard',
     'create_combat_keyboard',
-    'create_portal_keyboard',  # Cambiado de create_lucky_wheel_keyboard
+    'create_portal_keyboard',
     'create_menu_keyboard',
     
     # Save system functions
     'save_game_data',
     'load_game_data',
     'backup_data',
-    'get_save_info'
-
-    # Comment out TON functions
-    # 'initialize_ton_client',
-    # 'send_transaction',
-    # 'check_transaction_status',
-    # 'get_wallet_balance'
+    'get_save_info',
+    'get_db_connection',
+    'create_table',
+    'get_all_user_ids'
 ]

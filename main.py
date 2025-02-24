@@ -24,7 +24,7 @@ from bot.config.settings import (
     logger
 )
 from bot.config.premium_settings import PREMIUM_FEATURES
-from bot.utils.save_system import save_game_data, load_game_data, backup_data
+from bot.utils.save_system import save_game_data, load_game_data, get_all_user_ids, backup_data
 from bot.utils.keyboard import (
     generar_botones,
 #    create_waterquest_menu_keyboard,
@@ -123,11 +123,7 @@ def initialize_new_player():
         },
     }
 
-def create_new_player(user_id, context):
-    new_player = initialize_new_player()
-    new_player = give_free_tickets_to_new_player(new_player)
-    context.bot_data['players'][user_id] = new_player
-    save_game_data(user_id, new_player)
+
 
 
 async def start(update: Update, context: CallbackContext):
@@ -136,34 +132,32 @@ async def start(update: Update, context: CallbackContext):
         user_id = update.effective_user.id
         
         # Initialize players dict in context if not exists
-        if 'players' not in context.bot_data:
-            context.bot_data['players'] = load_game_data()
-        
-        if user_id not in context.bot_data['players']:
+        player_data = load_game_data(user_id)
+        if player_data is None:
             # Initialize new player
-            context.bot_data['players'][user_id] = initialize_new_player()
-            save_game_data(context.bot_data['players'])
+            player_data = initialize_new_player()
+            save_game_data(user_id, player_data)
             
             if update.callback_query and update.callback_query.message:
                 await update.callback_query.message.reply_text(
                     SUCCESS_MESSAGES["welcome"],
-                    reply_markup=generar_botones(context.bot_data['players'][user_id])
+                    reply_markup=generar_botones(player_data)
                 )
             elif update.message:
                 await update.message.reply_text(
                     SUCCESS_MESSAGES["welcome"],
-                    reply_markup=generar_botones(context.bot_data['players'][user_id])
+                    reply_markup=generar_botones(player_data)
                 )
         else:
             if update.callback_query and update.callback_query.message:
                 await update.callback_query.message.reply_text(
                     "¡Ya tienes una mascota! Usa los botones para jugar.",
-                    reply_markup=generar_botones(context.bot_data['players'][user_id])
+                    reply_markup=generar_botones(player_data)
                 )
             elif update.message:
                 await update.message.reply_text(
                     "¡Ya tienes una mascota! Usa los botones para jugar.",
-                    reply_markup=generar_botones(context.bot_data['players'][user_id])
+                    reply_markup=generar_botones(player_data)
                 )
     except Exception as e:
         logger.error(f"Error in start command: {e}")
@@ -184,8 +178,7 @@ async def button(update: Update, context: CallbackContext):
 
         # Get player data for menu generation
         user_id = query.from_user.id
-        player = context.bot_data.get('players', {}).get(user_id)
-
+        player = load_game_data(user_id)
         if player is None:
             logger.warning(f"Player data not found for user_id: {user_id}")
             await query.message.reply_text(ERROR_MESSAGES["player_not_found"])
@@ -245,7 +238,7 @@ async def button(update: Update, context: CallbackContext):
         if update.callback_query and update.callback_query.message:
             await update.callback_query.message.reply_text(
                 ERROR_MESSAGES["generic_error"],
-                reply_markup=generar_botones(player if 'player' in locals() else None)
+                reply_markup=generar_botones(player)
             )
         elif update.message:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"])
@@ -264,14 +257,6 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in error handler: {e}")
 
-async def save_game_job(context: ContextTypes.DEFAULT_TYPE):
-    """Periodic save job."""
-    try:
-        if 'players' in context.bot_data:
-            save_game_data(context.bot_data['players'])
-            logger.info("Auto-save completed")
-    except Exception as e:
-        logger.error(f"Error in save game job: {e}")
 
 def main():
     """Start the bot."""
@@ -301,12 +286,7 @@ def main():
         job_queue = application.job_queue
         job_queue.run_once(setup_weekly_contest, when=1)  # Run setup immediately
 
-        # Add periodic jobs
-        application.job_queue.run_repeating(
-            save_game_job,
-            interval=300,  # Every 5 minutes
-            first=300
-        )
+    
 
         # Add weekly ticket check job
         application.job_queue.run_repeating(
@@ -364,9 +344,13 @@ if __name__ == '__main__':
         print("\nBot detenido manualmente")
     finally:
         # Save data on shutdown if application was created
-        if app and hasattr(app, 'bot_data') and 'players' in app.bot_data:
-            save_game_data(app.bot_data['players'])
-            backup_data(app.bot_data['players'])
+        if app:
+            user_ids = get_all_user_ids()
+            for user_id in user_ids:
+                player_data = load_game_data(user_id)
+                if player_data:
+                    save_game_data(user_id, player_data)
+                    backup_data(user_id, player_data)
             print("Datos guardados. ¡Hasta luego!")
 
 

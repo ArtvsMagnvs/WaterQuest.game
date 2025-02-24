@@ -4,7 +4,7 @@ import psycopg2
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 # Configuración de la base de datos
 import os
@@ -165,6 +165,53 @@ def load_game_data(user_id: str) -> Optional[Dict]:
     except Exception as e:
         logger.error(f"Error cargando datos para {user_id}: {e}")
         return None
+
+def get_all_user_ids() -> List[str]:
+    """Recupera todos los user_ids de la base de datos."""
+    try:
+        query = """
+        SELECT user_id FROM game_data;
+        """
+        
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                rows = cur.fetchall()
+                
+        user_ids = [row[0] for row in rows]
+        logger.info(f"Recuperados {len(user_ids)} user_ids de la base de datos.")
+        return user_ids
+    except Exception as e:
+        logger.error(f"Error recuperando user_ids: {e}")
+        return []
+    
+def backup_data(user_id: str, data: Dict) -> bool:
+    """Crea una copia de seguridad de los datos del usuario."""
+    try:
+        # Crear un nombre de archivo único con la fecha y hora actual
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"backup_{user_id}_{timestamp}.json"
+        
+        # Ruta al directorio de copias de seguridad
+        backup_dir = "backups"
+        
+        # Asegurarse de que el directorio de copias de seguridad existe
+        import os
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+        
+        # Ruta completa del archivo de copia de seguridad
+        backup_path = os.path.join(backup_dir, filename)
+        
+        # Guardar los datos en el archivo JSON
+        with open(backup_path, 'w') as f:
+            json.dump(data, f, indent=4)
+        
+        logger.info(f"Copia de seguridad creada para el usuario {user_id}: {filename}")
+        return True
+    except Exception as e:
+        logger.error(f"Error creando copia de seguridad para el usuario {user_id}: {e}")
+        return False
 
 # Crear la tabla al iniciar
 create_table()

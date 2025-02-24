@@ -6,7 +6,8 @@ from datetime import datetime, timedelta, time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler, CallbackContext
 from bot.config.settings import logger
-from bot.utils.save_system import save_game_data
+from bot.utils.save_system import load_game_data, save_game_data
+
 
 # Contest Configuration
 CONTEST_CONFIG = {
@@ -38,7 +39,10 @@ async def weekly_contest_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Display the weekly contest menu."""
     user_id = update.effective_user.id
     contest_data = context.bot_data.get("weekly_contest", {})
-    player_data = context.bot_data["players"].get(str(user_id), {})
+    player_data = load_game_data(str(user_id))
+    if player_data is None:
+        await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+        return
     player_contest_data = player_data.get("contest_data", {"tickets": 0})
 
     if not contest_data or datetime.now() > contest_data.get("end_time", datetime.now()):
@@ -110,9 +114,10 @@ async def end_weekly_contest(context: ContextTypes.DEFAULT_TYPE):
     winners = select_winners(participants)
     
     for user_id, prize in winners.items():
-        player = context.bot_data["players"].get(str(user_id))
+        player = load_game_data(str(user_id))
         if player:
             player["balance"] = player.get("balance", 0) + prize
+            save_game_data(str(user_id), player)
             await context.bot.send_message(
                 chat_id=user_id,
                 text=f"🎊 ¡Felicidades! Has ganado {prize} USDT en el concurso semanal."
@@ -126,8 +131,7 @@ async def end_weekly_contest(context: ContextTypes.DEFAULT_TYPE):
                 text="El concurso semanal ha terminado. ¡Gracias por participar! Mejor suerte la próxima vez."
             )
     
-    # Save game data
-    save_game_data(context.bot_data["players"])
+    
     
     # Reset contest data
     context.bot_data["weekly_contest"] = {}
@@ -170,7 +174,10 @@ async def view_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.answer("No hay un concurso activo en este momento.")
         return
     
-    player = context.bot_data["players"].get(str(user_id))
+    player = load_game_data(str(user_id))
+    if player is None:
+        await update.callback_query.answer("Debes iniciar el juego primero con /start.")
+        return
     if not player:
         await update.callback_query.answer("Debes iniciar el juego primero con /start.")
         return
@@ -189,6 +196,8 @@ async def view_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Update contest participants
     contest_data["participants"][user_id] = player_contest_data["tickets"]
+
+    save_game_data(str(user_id), player)
     
     # Check milestone after updating the player's data
     await check_milestone(update, context)
@@ -216,7 +225,7 @@ async def send_daily_reminder(context: ContextTypes.DEFAULT_TYPE):
 async def check_milestone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Check if user is close to reaching a milestone and notify them."""
     user_id = update.effective_user.id
-    player = context.bot_data["players"].get(str(user_id))
+    player = load_game_data(str(user_id))
     if not player:
         return
 

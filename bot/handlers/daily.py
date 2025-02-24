@@ -14,7 +14,7 @@ from bot.config.settings import (
     logger
 )
 from bot.utils.keyboard import generar_botones
-from bot.utils.save_system import save_game_data
+from bot.utils.save_system import save_game_data, load_game_data
 from bot.config.premium_settings import PREMIUM_FEATURES
 
 def get_next_midnight_cet():
@@ -36,7 +36,15 @@ async def claim_daily_reward(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        player = context.bot_data['players'][user_id]
+        player = load_game_data(str(user_id))
+        if not player:
+            if update.callback_query:
+                await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            else:
+                await update.message.reply_text(ERROR_MESSAGES["no_game"])
+            return
+
+
         # Initialize daily reward data if it doesn't exist
         if 'daily_reward' not in player:
             player['daily_reward'] = {
@@ -118,7 +126,7 @@ async def claim_daily_reward(update: Update, context: ContextTypes.DEFAULT_TYPE)
         player['daily_reward']['last_claim'] = current_time.timestamp()
 
         # Save game data
-        save_game_data(context.bot_data['players'])
+        save_game_data(str(user_id), player)
 
         # Prepare response message
         message = SUCCESS_MESSAGES["daily_reward"].format(
@@ -167,26 +175,29 @@ async def check_daily_reset(context: ContextTypes.DEFAULT_TYPE):
         cet = pytz.timezone('CET')
         current_time = datetime.now(cet)
         
-        for user_id, player in context.bot_data.get('players', {}).items():
-            if 'daily_reward' in player:
+        for user_id in context.bot_data.get('players', {}):
+            player = load_game_data(str(user_id))
+            if player and 'daily_reward' in player:
                 last_claim_dt = datetime.fromtimestamp(player['daily_reward']['last_claim'], cet)
                 yesterday = (current_time - timedelta(days=1)).date()
-                
+        
                 if last_claim_dt.date() < yesterday:
                     player['daily_reward']['streak'] = 1
-                    
-        save_game_data(context.bot_data['players'])
+                    save_game_data(str(user_id), player)
+
     except Exception as e:
         logger.error(f"Error in daily reset check: {e}")
 
 async def check_weekly_tickets(context: ContextTypes.DEFAULT_TYPE):
     """Check and distribute weekly tickets"""
     current_time = time.time()
-    for user_id, player in context.bot_data.get('players', {}).items():
-        premium_features = player.get('premium_features', {})
-        last_distribution = premium_features.get('last_ticket_distribution', 0)
-        if current_time - last_distribution >= PREMIUM_FEATURES['weekly_reset']:
-            await distribute_weekly_tickets(context)
+    for user_id in context.bot_data.get('players', {}):
+        player = load_game_data(str(user_id))
+        if player:
+            premium_features = player.get('premium_features', {})
+            last_distribution = premium_features.get('last_ticket_distribution', 0)
+            if current_time - last_distribution >= PREMIUM_FEATURES['weekly_reset']:
+                await distribute_weekly_tickets(context, str(user_id))
 
 def setup_daily_handlers(application):
     """Set up daily reward related handlers and jobs."""

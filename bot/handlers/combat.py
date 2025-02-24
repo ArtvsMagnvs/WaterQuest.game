@@ -16,7 +16,7 @@ from bot.config.settings import (
     GOLD_PER_LEVEL
 )
 from bot.utils.keyboard import generar_botones
-from bot.utils.save_system import save_game_data
+from bot.utils.save_system import save_game_data, load_game_data
 from bot.config.premium_settings import PREMIUM_FEATURES
 
 def calculate_rewards(enemy_level: int, player_level: int, is_premium: bool = False):
@@ -77,14 +77,14 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle quick combat encounters."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
+        player = load_game_data(str(user_id))
+        if not player:
             if update.callback_query:
                 await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
             else:
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        player = context.bot_data['players'][user_id]
         stats = player["combat_stats"]
         
         # Check pet level requirement
@@ -215,14 +215,15 @@ async def view_combat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """View detailed combat statistics."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
+        player = load_game_data(str(user_id))
+        if not player:
             if update.callback_query:
                 await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
             else:
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        stats = context.bot_data['players'][user_id]["combat_stats"]
+        stats = player["combat_stats"]
         
         message = (
             "⚔️ *Estadísticas de Combate*\n\n"

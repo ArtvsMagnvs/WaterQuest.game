@@ -15,7 +15,7 @@ from bot.config.settings import (
     MAX_ENERGY
 )
 from bot.utils.keyboard import generar_botones
-from bot.utils.save_system import save_game_data
+from bot.utils.save_system import save_game_data, load_game_data
 from bot.handlers.shop import comprar_fragmentos
 
 
@@ -186,14 +186,15 @@ async def portal_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Display Portal of Tides menu."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
+        player = load_game_data(str(user_id))
+        if player is None:
             if update.callback_query:
                 await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
             else:
                 await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
         
-        player = context.bot_data['players'][user_id]
+        
         
         # Verifica si 'portal_stats' existe, si no lo inicializa
         if 'portal_stats' not in player:
@@ -262,7 +263,10 @@ async def spin_portal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle portal spinning."""
     try:
         user_id = update.effective_user.id
-        player = context.bot_data['players'][user_id]
+        player = load_game_data(str(user_id))
+        if player is None:
+            await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            return
         
         # Check if multi-spin
         is_multi = update.callback_query.data == "portal_spin_10"
@@ -345,7 +349,7 @@ async def spin_portal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         player['premium_features']['tickets'] -= tickets_needed
         
         # Save changes
-        save_game_data(context.bot_data['players'])
+        save_game_data(str(user_id), player)
 
         # Show rewards
         rewards_message = f"{PORTAL_MESSAGES[rewards[0][0]]}\n\n"

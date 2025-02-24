@@ -8,7 +8,7 @@ from datetime import datetime
 # Import configurations and utilities
 from bot.config.settings import SUCCESS_MESSAGES, ERROR_MESSAGES, logger
 from bot.utils.keyboard import generar_botones
-from bot.utils.save_system import save_game_data
+from bot.utils.save_system import save_game_data, load_game_data
 
 # Import other handlers
 from bot.handlers.combat import quick_combat
@@ -35,7 +35,6 @@ def initialize_combat_stats(level):
     }
 
 def initialize_new_player():
-    """Initialize data for a new player."""
     return {
         "mascota": {
             "hambre": 100,
@@ -45,8 +44,8 @@ def initialize_new_player():
             "oro_hora": 1,
         },
         "comida": 0,
-        "última_alimentación": datetime.now().timestamp(),
-        "última_actualización": datetime.now().timestamp(),
+        "última_alimentación": datetime.now(),
+        "última_actualización": datetime.now(),
         "inventario": {},
         "combat_stats": initialize_combat_stats(0),
         "daily_reward": {
@@ -60,7 +59,14 @@ def initialize_new_player():
             "auto_collector_expires": 0,
             "daily_bonus": False,
             "tickets": 100
-        }
+        },
+        "daily_ads": 0,
+        "miniboss_attempts": 0,
+        "gold_multiplier": 1.0,
+        "weekly_contest": {},
+        "portal_stats": {},
+        "pity_counter": 0,
+        "last_epic_pull": None
     }
 
 async def start(update: Update, context: CallbackContext):
@@ -68,14 +74,14 @@ async def start(update: Update, context: CallbackContext):
     try:
         user_id = update.effective_user.id
         
-        # Get players dictionary from context
+        # Load existing game data
         if 'players' not in context.bot_data:
-            context.bot_data['players'] = {}
+            context.bot_data['players'] = load_game_data()
         
         if user_id not in context.bot_data['players']:
             # Initialize new player
             context.bot_data['players'][user_id] = initialize_new_player()
-            save_game_data(context.bot_data['players'])
+            save_game_data(user_id, context.bot_data['players'][user_id])
             
             if update.callback_query:
                 await update.callback_query.message.reply_text(
