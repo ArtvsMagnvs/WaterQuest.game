@@ -1,4 +1,4 @@
 setuptools>=67.0.0
 wheel>=0.41.0
 requests==2.31.0
-psycopg2-binary==2.9.6
+psycopg2-binary==2.9.6 --no-binary psycopg2-binary
