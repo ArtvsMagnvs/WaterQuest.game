@@ -265,7 +265,8 @@ def main():
         application = Application.builder().token(TOKEN).build()
 
         # Initialize players data
-        application.bot_data['players'] = load_game_data()
+        # Initialize an empty dictionary for players
+        application.bot_data['players'] = {}
 
         # Add command handlers
         application.add_handler(CommandHandler("start", start))
