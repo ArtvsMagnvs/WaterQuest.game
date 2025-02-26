@@ -60,17 +60,23 @@ def create_table():
             conn.commit()
     logger.info("Tabla game_data verificada/existente.")
 
+
+
 def save_game_data(user_id: str, data: Dict) -> bool:
     """Guarda los datos del usuario en la base de datos."""
     try:
         query = """
         INSERT INTO game_data (
-            user_id, mascota_hambre, mascota_energia, mascota_nivel, mascota_oro, mascota_oro_hora,
-            comida, ultima_alimentacion, ultima_actualizacion, inventario,
+            user_id, mascota_hambre, mascota_energia, mascota_nivel, mascota_oro, mascota_oro_hora, comida,
+            ultima_alimentacion, ultima_actualizacion, inventario,
             combat_level, combat_exp, battles_today, fire_coral,
-            daily_ads, miniboss_attempts, gold_multiplier, premium_features,
-            weekly_contest, portal_stats, pity_counter, last_epic_pull, last_legendary_pull
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            daily_ads, miniboss_attempts, gold_multiplier,
+            premium_features, weekly_contest, portal_stats,
+            pity_counter, last_epic_pull, last_legendary_pull
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s
+        )
         ON CONFLICT (user_id) DO UPDATE SET
             mascota_hambre = EXCLUDED.mascota_hambre,
             mascota_energia = EXCLUDED.mascota_energia,
@@ -97,19 +103,29 @@ def save_game_data(user_id: str, data: Dict) -> bool:
         """
         
         values = (
-            user_id, data['mascota']['hambre'], data['mascota']['energia'], data['mascota']['nivel'],
-            data['mascota']['oro'], data['mascota']['oro_hora'], data['comida'],
+            str(user_id),
+            data['mascota']['hambre'],
+            data['mascota']['energia'],
+            data['mascota']['nivel'],
+            data['mascota']['oro'],
+            data['mascota']['oro_hora'],
+            data['comida'],
             datetime.fromtimestamp(data['última_alimentación']),
             datetime.fromtimestamp(data['última_actualización']),
-            json.dumps(data['inventario']), data['combat_stats']['level'], data['combat_stats']['exp'],
-            data['combat_stats']['battles_today'], data['combat_stats']['fire_coral'],
-            data.get('daily_ads', 0), data.get('miniboss_attempts', 0), data.get('gold_multiplier', 1.0),
+            json.dumps(data['inventario']),
+            data['combat_stats']['level'],
+            data['combat_stats']['exp'],
+            data['combat_stats']['battles_today'],
+            data['combat_stats']['fire_coral'],
+            data.get('daily_ads', 0),
+            data.get('miniboss_attempts', 0),
+            data.get('gold_multiplier', 1.0),
             json.dumps(data.get('premium_features', {})),
             json.dumps(data.get('weekly_contest', {})),
             json.dumps(data.get('portal_stats', {})),
             data.get('pity_counter', 0),
-            datetime.fromtimestamp(data.get('last_epic_pull', 0)),
-            datetime.fromtimestamp(data.get('last_legendary_pull', 0))
+            datetime.fromtimestamp(data.get('last_epic_pull', 0)) if data.get('last_epic_pull') else None,
+            datetime.fromtimestamp(data.get('last_legendary_pull', 0)) if data.get('last_legendary_pull') else None
         )
         
         with get_db_connection() as conn:
@@ -132,7 +148,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
         
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (user_id,))
+                cur.execute(query, (str(user_id),))
                 row = cur.fetchone()
                 
                 if not row:
@@ -141,16 +157,21 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                 
                 return {
                     "mascota": {
-                        "hambre": row[1], "energia": row[2], "nivel": row[3],
-                        "oro": row[4], "oro_hora": row[5]
+                        "hambre": row[1],
+                        "energia": row[2],
+                        "nivel": row[3],
+                        "oro": row[4],
+                        "oro_hora": row[5]
                     },
                     "comida": row[6],
                     "última_alimentación": row[7].timestamp(),
                     "última_actualización": row[8].timestamp(),
                     "inventario": json.loads(row[9]),
                     "combat_stats": {
-                        "level": row[10], "exp": row[11],
-                        "battles_today": row[12], "fire_coral": row[13]
+                        "level": row[10],
+                        "exp": row[11],
+                        "battles_today": row[12],
+                        "fire_coral": row[13]
                     },
                     "daily_ads": row[14],
                     "miniboss_attempts": row[15],
