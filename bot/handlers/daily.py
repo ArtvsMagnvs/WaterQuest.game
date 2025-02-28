@@ -29,19 +29,15 @@ async def claim_daily_reward(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Handle daily reward claims."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
-            if update.callback_query:
-                await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
-            else:
-                await update.message.reply_text(ERROR_MESSAGES["no_game"])
-            return
-
         player = load_game_data(str(user_id))
+        
         if not player:
+            message = ERROR_MESSAGES["no_game"]
             if update.callback_query:
-                await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+                await update.callback_query.answer()
+                await update.callback_query.message.reply_text(message)
             else:
-                await update.message.reply_text(ERROR_MESSAGES["no_game"])
+                await update.message.reply_text(message)
             return
 
 
