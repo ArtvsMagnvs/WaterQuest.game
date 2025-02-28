@@ -40,14 +40,21 @@ async def tienda(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         player = load_game_data(str(user_id))
         if player is None:
-            await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            message = ERROR_MESSAGES["no_game"]
+            if update.callback_query:
+                await update.callback_query.answer()
+                await update.callback_query.message.reply_text(message)
+            else:
+                await update.message.reply_text(message)
             return
         if not player or 'mascota' not in player or 'oro' not in player['mascota']:
             logger.error(f"Invalid or missing player data for user_id: {user_id}")
+            message = ERROR_MESSAGES["generic_error"]
             if update.callback_query:
-                await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"])
+                await update.callback_query.answer()
+                await update.callback_query.message.reply_text(message)
             else:
-                await update.message.reply_text(ERROR_MESSAGES["generic_error"])
+                await update.message.reply_text(message)
             return
 
         # Header message with complete item descriptions and production rates
@@ -139,9 +146,13 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name:
 
         player = load_game_data(str(user_id))
         if player is None:
-            await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            message = ERROR_MESSAGES["no_game"]
+            if update.callback_query:
+                await update.callback_query.answer()
+                await update.callback_query.message.reply_text(message)
+            else:
+                await update.message.reply_text(message)
             return
-        mascota = player['mascota']
         
         # Get base item and calculate current level stats
         base_item = next((item for item in SHOP_ITEMS if item['nombre'] == item_name), None)
@@ -162,11 +173,11 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name:
         item = ShopManager.calculate_item_stats(base_item, current_level)
 
         # Check if player has enough gold
-        if mascota['oro'] >= item['costo']:
+        if player['mascota']['oro'] >= item['costo']:
             # Process purchase
-            mascota['oro'] -= item['costo']
+            player['mascota']['oro'] -= item['costo']
             player['inventario'][item_name] = current_level
-            mascota['oro_hora'] += item['oro_hora']
+            player['mascota']['oro_hora'] += item['oro_hora']
 
             # Save game data
             save_game_data(str(user_id), player)
@@ -178,9 +189,9 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name:
             mensaje = (
                 f"✅ ¡Compra exitosa!\n\n"
                 f"{item['emoji']} {item_name} nivel {current_level}\n"
-                f"💰 Oro restante: {mascota['oro']}\n"
+                f"💰 Oro restante: {player['mascota']['oro']}\n"
                 f"⚡ Producción añadida: +{item['oro_hora']}/min\n"
-                f"📈 Producción total: {mascota['oro_hora']}/min\n\n"
+                f"📈 Producción total: {player['mascota']['oro_hora']}/min\n\n"
                 f"Siguiente nivel costará: {next_level['costo']} oro\n"
                 f"Y producirá: +{next_level['oro_hora']}/min"
             )
@@ -199,11 +210,11 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name:
                 await update.message.reply_text(mensaje, reply_markup=reply_markup)
         else:
             # Not enough gold
-            falta_oro = item['costo'] - mascota['oro']
+            falta_oro = item['costo'] - player['mascota']['oro']
             mensaje = (
                 f"❌ No tienes suficiente oro.\n"
                 f"Necesitas: {item['costo']} oro\n"
-                f"Tienes: {mascota['oro']} oro\n"
+                f"Tienes: {player['mascota']['oro']} oro\n"
                 f"Te faltan: {falta_oro} oro"
             )
             
@@ -234,7 +245,12 @@ async def comprar_fragmentos(update: Update, context: ContextTypes.DEFAULT_TYPE)
     player = load_game_data(str(user_id))
 
     if not player:
-        await update.callback_query.message.reply_text("❌ No se encontró tu perfil de jugador.")
+        message = "❌ No se encontró tu perfil de jugador."
+        if update.callback_query:
+            await update.callback_query.answer()
+            await update.callback_query.message.reply_text(message)
+        else:
+            await update.message.reply_text(message)
         return
 
     # Determinar cuántos fragmentos de destino puede comprar el jugador
@@ -265,7 +281,12 @@ async def premium_shop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         player = load_game_data(str(user_id))
         if player is None:
-            await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
+            message = ERROR_MESSAGES["no_game"]
+            if update.callback_query:
+                await update.callback_query.answer()
+                await update.callback_query.message.reply_text(message)
+            else:
+                await update.message.reply_text(message)
             return
 
         header_message = (
@@ -324,6 +345,7 @@ async def buy_premium_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         player = context.bot_data['players'].get(user_id)
         if not player:
+            await query.answer()
             await query.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
