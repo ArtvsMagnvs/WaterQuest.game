@@ -31,13 +31,6 @@ async def tienda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle shop interface with full-width button layout."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
-            if update.callback_query:
-                await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
-            else:
-                await update.message.reply_text(ERROR_MESSAGES["no_game"])
-            return
-
         player = load_game_data(str(user_id))
         if player is None:
             message = ERROR_MESSAGES["no_game"]
@@ -47,7 +40,7 @@ async def tienda(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text(message)
             return
-        if not player or 'mascota' not in player or 'oro' not in player['mascota']:
+        if 'mascota' not in player or 'oro' not in player['mascota']:
             logger.error(f"Invalid or missing player data for user_id: {user_id}")
             message = ERROR_MESSAGES["generic_error"]
             if update.callback_query:
@@ -137,13 +130,6 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name:
     """Handle item purchases."""
     try:
         user_id = update.effective_user.id
-        if user_id not in context.bot_data.get('players', {}):
-            if update.callback_query:
-                await update.callback_query.message.reply_text(ERROR_MESSAGES["no_game"])
-            else:
-                await update.message.reply_text(ERROR_MESSAGES["no_game"])
-            return
-
         player = load_game_data(str(user_id))
         if player is None:
             message = ERROR_MESSAGES["no_game"]
