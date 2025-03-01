@@ -194,6 +194,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"\n\n⚔️ Batallas restantes hoy: {battles_left}"
 
         # Save game data
+        player["combat_stats"] = stats  # Asegúrate de que los stats actualizados se guarden en el jugador
         save_game_data(str(user_id), player)
 
         # Create reply keyboard
