@@ -197,6 +197,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         battles_left = max_battles - len(stats["battle_timestamps"])
         message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
 
+
         # Save game data
         player["combat_stats"] = stats
         save_game_data(str(user_id), player)

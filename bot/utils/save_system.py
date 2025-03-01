@@ -25,6 +25,7 @@ def get_db_connection():
     """Conectar a la base de datos PostgreSQL."""
     return psycopg2.connect(**DB_CONFIG)
 
+
 def create_table():
     """Crear la tabla si no existe."""
     query = """
