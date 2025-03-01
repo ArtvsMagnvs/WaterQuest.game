@@ -86,6 +86,24 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         stats = player["combat_stats"]
+        # Ensure all necessary stats are initialized
+        default_stats = {
+            "level": 1,
+            "hp": 100,
+            "atk": 10,
+            "mp": 50,
+            "def_p": 5,
+            "def_m": 5,
+            "agi": 10,
+            "sta": 100,
+            "battles_today": 0,
+            "last_battle_date": None,
+            "exp": 0,
+            "fire_coral": 0
+        }
+        for key, value in default_stats.items():
+            if key not in stats:
+                stats[key] = value
         
         # Check pet level requirement
         if player["mascota"]["nivel"] < PET_LEVEL_REQUIREMENT:
@@ -96,7 +114,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(message, reply_markup=generar_botones())
             return
         
-        # Reset battles count if it's a new day
+        
         # Reset battles count if it's a new day
         current_date = datetime.now().date()
         last_battle_date = stats.get("last_battle_date")
@@ -127,7 +145,9 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         enemy_level = max(0, combat_level - 1 + random.randint(0, 2))
         
         # Calculate battle result (base 75% win rate + agility bonus)
-        victory_chance = 0.75 + (stats["agi"] / 1000)  # Agility gives small bonus
+        base_chance = 0.75
+        agi_bonus = stats["agi"] / 1000  # Now we can safely use stats["agi"]
+        victory_chance = base_chance + agi_bonus
         victory = random.random() < victory_chance
 
         if victory:
