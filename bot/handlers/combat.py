@@ -118,9 +118,9 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Reset battles count if it's a new day
         current_date = datetime.now().date()
         last_battle_date = stats.get("last_battle_date")
-        if not last_battle_date or last_battle_date != str(current_date):
+        if not last_battle_date or datetime.strptime(last_battle_date, "%Y-%m-%d").date() < current_date:
             stats["battles_today"] = 0
-            stats["last_battle_date"] = str(current_date)
+            stats["last_battle_date"] = current_date.strftime("%Y-%m-%d")
 
         # Check max battles (considering premium status)
         max_battles = MAX_BATTLES_PER_DAY
