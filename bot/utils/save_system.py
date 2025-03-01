@@ -39,6 +39,7 @@ def create_table():
         ultima_alimentacion TIMESTAMP,
         ultima_actualizacion TIMESTAMP,
         inventario TEXT,
+        battle_timestamps TIMESTAMP,
         combat_level INT,
         combat_exp INT,
         battles_today INT,
@@ -87,6 +88,7 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             ultima_alimentacion = EXCLUDED.ultima_alimentacion,
             ultima_actualizacion = EXCLUDED.ultima_actualizacion,
             inventario = EXCLUDED.inventario,
+            battle_timestamps = EXCLUDED.battle_timestamps,
             combat_level = EXCLUDED.combat_level,
             combat_exp = EXCLUDED.combat_exp,
             battles_today = EXCLUDED.battles_today,
@@ -113,6 +115,7 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             datetime.fromtimestamp(data['última_alimentación']),
             datetime.fromtimestamp(data['última_actualización']),
             json.dumps(data['inventario']),
+            json.dumps(data['combat_stats'].get('battle_timestamps', [])),
             data['combat_stats']['level'],
             data['combat_stats']['exp'],
             data['combat_stats']['battles_today'],
@@ -170,7 +173,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     "combat_stats": {
                         "level": row[10],
                         "exp": row[11],
-                        "battles_today": row[12],
+                        'battle_timestamps': json.loads(row[12]) if row[12] else [],
                         "fire_coral": row[13]
                     },
                     "daily_ads": row[14],
