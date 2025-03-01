@@ -6,6 +6,7 @@ import random
 from datetime import datetime, timedelta
 import logging
 
+
 from bot.config.settings import (
     SUCCESS_MESSAGES, 
     ERROR_MESSAGES, 
@@ -85,6 +86,21 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         stats = player["combat_stats"]
+        # Ensure all necessary stats are initialized
+        default_stats = {
+            "level": 1,
+            "hp": 100,
+            "atk": 10,
+            "mp": 50,
+            "def_p": 5,
+            "def_m": 5,
+            "agi": 10,
+            "sta": 100,
+            "battles_today": 0,
+            "last_battle_date": None,
+            "exp": 0,
+            "fire_coral": 0
+        }
         
         # Inicializar battle_timestamps si no existe
         if "battle_timestamps" not in stats:
