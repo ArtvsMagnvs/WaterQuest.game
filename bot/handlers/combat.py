@@ -193,9 +193,13 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         battles_left = max_battles - stats["battles_today"]
         message += f"\n\n⚔️ Batallas restantes hoy: {battles_left}"
 
+        # Update last battle date
+        stats["last_battle_date"] = current_date.strftime("%Y-%m-%d")
+
         # Save game data
         player["combat_stats"] = stats  # Asegúrate de que los stats actualizados se guarden en el jugador
         save_game_data(str(user_id), player)
+        logger.info(f"Datos guardados para el usuario {user_id}. Batallas hoy: {stats['battles_today']}, Última fecha de batalla: {stats['last_battle_date']}")
 
         # Create reply keyboard
         keyboard = [
