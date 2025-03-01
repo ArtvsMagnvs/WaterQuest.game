@@ -3,9 +3,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
-
 
 from bot.config.settings import (
     SUCCESS_MESSAGES, 
@@ -74,7 +73,10 @@ def calculate_rewards(enemy_level: int, combat_level: int, is_premium: bool = Fa
         "coral": coral
     }
 
+
+
 async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle quick combat encounters."""
     try:
         user_id = update.effective_user.id
         player = load_game_data(str(user_id))
@@ -101,27 +103,43 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "exp": 0,
             "fire_coral": 0
         }
+        for key, value in default_stats.items():
+            if key not in stats:
+                stats[key] = value
         
-        # Inicializar battle_timestamps si no existe
-        if "battle_timestamps" not in stats:
-            stats["battle_timestamps"] = []
-        
-        # Verificar el número de batallas en las últimas 24 horas
-        current_time = datetime.now()
-        one_day_ago = current_time - timedelta(days=1)
-        recent_battles = [ts for ts in stats["battle_timestamps"] if ts > one_day_ago.timestamp()]
-        
-        # Determinar el máximo de batallas permitidas
-        max_battles = MAX_BATTLES_PER_DAY
-        if player.get('premium_features', {}).get('premium_status', False):
-            max_battles += 10  # Premium users get 10 extra battles
-
-        if len(recent_battles) >= max_battles:
-            message = f"⚠️ Ya has realizado todas tus batallas en las últimas 24 horas! ({max_battles})"
+        # Check pet level requirement
+        if player["mascota"]["nivel"] < PET_LEVEL_REQUIREMENT:
+            message = f"⚠️ Necesitas nivel {PET_LEVEL_REQUIREMENT} de mascota para acceder al Combate Rápido."
             if update.callback_query:
                 await update.callback_query.message.reply_text(message, reply_markup=generar_botones())
             else:
                 await update.message.reply_text(message, reply_markup=generar_botones())
+            return
+        
+        
+        # Reset battles count if it's a new day
+        current_date = datetime.now().date()
+        last_battle_date = stats.get("last_battle_date")
+        if not last_battle_date or datetime.strptime(last_battle_date, "%Y-%m-%d").date() < current_date:
+            stats["battles_today"] = 0
+            stats["last_battle_date"] = current_date.strftime("%Y-%m-%d")
+
+        # Check max battles (considering premium status)
+        max_battles = MAX_BATTLES_PER_DAY
+        if player.get('premium_features', {}).get('premium_status', False):
+            max_battles += 10  # Premium users get 10 extra battles
+
+        if stats["battles_today"] >= max_battles:
+            if update.callback_query:
+                await update.callback_query.message.reply_text(
+                    f"⚠️ Ya has realizado todas tus batallas del día! ({max_battles})",
+                    reply_markup=generar_botones()
+                )
+            else:
+                await update.message.reply_text(
+                    f"⚠️ Ya has realizado todas tus batallas del día! ({max_battles})",
+                    reply_markup=generar_botones()
+                )
             return
 
         # Generate enemy based on player's combat level
@@ -130,7 +148,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Calculate battle result (base 75% win rate + agility bonus)
         base_chance = 0.75
-        agi_bonus = stats["agi"] / 1000
+        agi_bonus = stats["agi"] / 1000  # Now we can safely use stats["agi"]
         victory_chance = base_chance + agi_bonus
         victory = random.random() < victory_chance
 
@@ -148,7 +166,17 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             while stats["exp"] >= exp_needed_for_level(stats["level"]):
                 stats["exp"] -= exp_needed_for_level(stats["level"])
                 stats["level"] += 1
-                stats = update_stats_on_level_up(stats)
+                
+                # Update combat stats on level up
+                level = stats["level"]
+                stats.update({
+                    "hp": 100 + (level * 10),
+                    "atk": 10 + (level * 2),
+                    "mp": 50 + (level * 5),
+                    "def_p": 5 + (level * 1.5),
+                    "def_m": 5 + (level * 1.5),
+                    "agi": 10 + (level * 1)
+                })
 
             message = (
                 f"🗡 ¡Victoria!\n"
@@ -162,19 +190,18 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
 
-        # Añadir el timestamp actual
-        stats["battle_timestamps"].append(current_time.timestamp())
-        
-        # Limpiar timestamps antiguos
-        stats["battle_timestamps"] = [ts for ts in stats["battle_timestamps"] if ts > one_day_ago.timestamp()]
+        # Update battles count
+        stats["battles_today"] += 1
+        battles_left = max_battles - stats["battles_today"]
+        message += f"\n\n⚔️ Batallas restantes hoy: {battles_left}"
 
-        # Calcular batallas restantes
-        battles_left = max_battles - len(stats["battle_timestamps"])
-        message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
+        # Update last battle date
+        stats["last_battle_date"] = current_date.strftime("%Y-%m-%d")
 
         # Save game data
-        player["combat_stats"] = stats
+        player["combat_stats"] = stats  # Asegúrate de que los stats actualizados se guarden en el jugador
         save_game_data(str(user_id), player)
+        logger.info(f"Datos guardados para el usuario {user_id}. Batallas hoy: {stats['battles_today']}, Última fecha de batalla: {stats['last_battle_date']}")
 
         # Create reply keyboard
         keyboard = [
