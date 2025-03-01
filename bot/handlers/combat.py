@@ -97,8 +97,10 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         # Reset battles count if it's a new day
+        # Reset battles count if it's a new day
         current_date = datetime.now().date()
-        if stats["last_battle_date"] != str(current_date):
+        last_battle_date = stats.get("last_battle_date")
+        if not last_battle_date or last_battle_date != str(current_date):
             stats["battles_today"] = 0
             stats["last_battle_date"] = str(current_date)
 
