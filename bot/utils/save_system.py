@@ -225,7 +225,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
     except Exception as e:
         logger.error(f"Error cargando datos para {user_id}: {e}")
         return None
-ag
+
 
 def get_all_user_ids() -> List[str]:
     """Recupera todos los user_ids de la base de datos."""
