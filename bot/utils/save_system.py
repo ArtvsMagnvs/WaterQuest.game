@@ -25,7 +25,6 @@ def get_db_connection():
     """Conectar a la base de datos PostgreSQL."""
     return psycopg2.connect(**DB_CONFIG)
 
-
 def create_table():
     """Crear la tabla si no existe."""
     query = """
@@ -40,10 +39,10 @@ def create_table():
         ultima_alimentacion TIMESTAMP,
         ultima_actualizacion TIMESTAMP,
         inventario TEXT,
-        battle_timestamps TIMESTAMP,
         combat_level INT,
         combat_exp INT,
         battles_today INT,
+        battle_timestamps TEXT, 
         fire_coral INT,
         daily_ads INT,
         miniboss_attempts INT,
@@ -71,12 +70,12 @@ def save_game_data(user_id: str, data: Dict) -> bool:
         INSERT INTO game_data (
             user_id, mascota_hambre, mascota_energia, mascota_nivel, mascota_oro, mascota_oro_hora, comida,
             ultima_alimentacion, ultima_actualizacion, inventario,
-            combat_level, combat_exp, battles_today, fire_coral,
+            combat_level, combat_exp, battles_today, battle_timestamps, fire_coral,
             daily_ads, miniboss_attempts, gold_multiplier,
             premium_features, weekly_contest, portal_stats,
             pity_counter, last_epic_pull, last_legendary_pull
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s, %s, %s, %s
         )
         ON CONFLICT (user_id) DO UPDATE SET
@@ -89,10 +88,10 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             ultima_alimentacion = EXCLUDED.ultima_alimentacion,
             ultima_actualizacion = EXCLUDED.ultima_actualizacion,
             inventario = EXCLUDED.inventario,
-            battle_timestamps = EXCLUDED.battle_timestamps,
             combat_level = EXCLUDED.combat_level,
             combat_exp = EXCLUDED.combat_exp,
             battles_today = EXCLUDED.battles_today,
+            battle_timestamps = EXCLUDED.battle_timestamps,
             fire_coral = EXCLUDED.fire_coral,
             daily_ads = EXCLUDED.daily_ads,
             miniboss_attempts = EXCLUDED.miniboss_attempts,
@@ -116,10 +115,10 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             datetime.fromtimestamp(data['última_alimentación']),
             datetime.fromtimestamp(data['última_actualización']),
             json.dumps(data['inventario']),
-            json.dumps(data['combat_stats'].get('battle_timestamps', [])),
             data['combat_stats']['level'],
             data['combat_stats']['exp'],
             data['combat_stats']['battles_today'],
+            json.dumps(data['combat_stats'].get('battle_timestamps', [])),  # Añade esta línea
             data['combat_stats']['fire_coral'],
             data.get('daily_ads', 0),
             data.get('miniboss_attempts', 0),
@@ -159,6 +158,14 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     logger.info(f"No hay datos guardados para {user_id}.")
                     return None
                 
+                # Manejo seguro del campo battle_timestamps
+                battle_timestamps = []
+                if len(row) > 13 and row[13] is not None:
+                    try:
+                        battle_timestamps = json.loads(row[13])
+                    except json.JSONDecodeError:
+                        logger.warning(f"Error decodificando battle_timestamps para {user_id}. Usando lista vacía.")
+                
                 return {
                     "mascota": {
                         "hambre": row[1],
@@ -174,19 +181,19 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     "combat_stats": {
                         "level": row[10],
                         "exp": row[11],
-                        'battle_timestamps': json.loads(row[12]) if row[12] else [],
-                        "battles_today": row[13],
-                        "fire_coral": row[14]
+                        "battles_today": row[12],
+                        "battle_timestamps": battle_timestamps,  # Usa el valor manejado de forma segura
+                        "fire_coral": row[14] if len(row) > 14 else 0
                     },
-                    "daily_ads": row[15],
-                    "miniboss_attempts": row[16],
-                    "gold_multiplier": row[17],
-                    "premium_features": json.loads(row[18]),
-                    "weekly_contest": json.loads(row[19]),
-                    "portal_stats": json.loads(row[20]),
-                    "pity_counter": row[21],
-                    "last_epic_pull": row[22].timestamp() if row[22] else 0,
-                    "last_legendary_pull": row[23].timestamp() if row[23] else 0
+                    "daily_ads": row[15] if len(row) > 15 else 0,
+                    "miniboss_attempts": row[16] if len(row) > 16 else 0,
+                    "gold_multiplier": row[17] if len(row) > 17 else 1.0,
+                    "premium_features": json.loads(row[18]) if len(row) > 18 and row[18] is not None else {},
+                    "weekly_contest": json.loads(row[19]) if len(row) > 19 and row[19] is not None else {},
+                    "portal_stats": json.loads(row[20]) if len(row) > 20 and row[20] is not None else {},
+                    "pity_counter": row[21] if len(row) > 21 else 0,
+                    "last_epic_pull": row[22].timestamp() if len(row) > 22 and row[22] is not None else 0,
+                    "last_legendary_pull": row[23].timestamp() if len(row) > 23 and row[23] is not None else 0
                 }
     except Exception as e:
         logger.error(f"Error cargando datos para {user_id}: {e}")
