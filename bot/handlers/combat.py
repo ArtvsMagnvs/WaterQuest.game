@@ -117,8 +117,10 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'battle' not in player['timestamps']:
             player['timestamps']['battle'] = []
 
-        player['timestamps']['battle'] = [ts for ts in player['timestamps']['battle'] if datetime.fromisoformat(ts) > one_day_ago]
-        battle_timestamps = player['timestamps']['battle']
+        print(f"[ANTES] Batallas registradas: {len(player['timestamps']['battle'])}")
+        print(f"[ANTES] Timestamps: {player['timestamps']['battle']}")
+
+        battle_timestamps = [ts for ts in player['timestamps']['battle'] if datetime.fromisoformat(ts) > one_day_ago]
 
         max_battles = MAX_BATTLES_PER_DAY
         if player.get('premium_features', {}).get('premium_status', False):
@@ -131,7 +133,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         combat_level = stats["level"]
         enemy_level = max(0, combat_level - 1 + random.randint(0, 2))
-
+        
         base_chance = 0.75
         agi_bonus = stats["agi"] / 1000
         victory_chance = base_chance + agi_bonus
@@ -156,12 +158,17 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💰 Oro por minuto +{rewards['gold_per_min']}\n"
                 f"🌺 Coral de Fuego +{rewards['coral']}"
             )
+
             if stats["level"] > combat_level:
                 message += f"\n\n🎉 ¡Subiste al nivel de combate {stats['level']}!"
         else:
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
 
         battle_timestamps.append(current_time.isoformat())
+
+        print(f"[DESPUÉS] Batallas registradas: {len(battle_timestamps)}")
+        print(f"[DESPUÉS] Timestamps: {battle_timestamps}")
+
         stats['battles_today'] = len(battle_timestamps)
         player['timestamps']['battle'] = battle_timestamps
 
@@ -170,6 +177,9 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         player["combat_stats"] = stats
         save_game_data(user_id, player)
+
+        print(f"[GUARDADO] Batallas registradas: {len(player['timestamps']['battle'])}")
+        print(f"[GUARDADO] Timestamps: {player['timestamps']['battle']}")
 
         keyboard = [
             [InlineKeyboardButton("⚔️ Otro Combate", callback_data="combate")],
@@ -190,6 +200,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 
