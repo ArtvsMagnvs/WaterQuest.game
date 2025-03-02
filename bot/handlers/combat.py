@@ -177,6 +177,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Actualiza la cantidad de batallas hoy
         player['combat_stats']['battles_today'] = len(player['timestamps']['battle'])
+        
 
         player["combat_stats"] = stats
         player['timestamps']['battle'] = battle_timestamps
@@ -185,7 +186,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         
 
-
+        print(f"[GUARDADO] Batallas Hoy: {player['combat_stats']['battles_today']}")
         print(f"[GUARDADO] Batallas registradas: {len(player['timestamps']['battle'])}")
         print(f"[GUARDADO] Timestamps: {player['timestamps']['battle']}")
 
