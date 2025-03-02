@@ -5,6 +5,7 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict, Optional, List
+from psycopg2.extras import RealDictCursor
 
 # Configuración de la base de datos
 import os
@@ -150,7 +151,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
         """
         
         with get_db_connection() as conn:
-            with conn.cursor() as cur:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query, (str(user_id),))
                 row = cur.fetchone()
                 
@@ -158,43 +159,57 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     logger.info(f"No hay datos guardados para {user_id}.")
                     return None
                 
-                # Manejo seguro del campo battle_timestamps
-                battle_timestamps = []
-                if len(row) > 13 and row[13] is not None:
-                    try:
-                        battle_timestamps = json.loads(row[13])
-                    except json.JSONDecodeError:
-                        logger.warning(f"Error decodificando battle_timestamps para {user_id}. Usando lista vacía.")
+                # Convertir el resultado a un diccionario
+                data = dict(row)
                 
-                return {
+                # Convertir campos JSON
+                json_fields = ['inventario', 'battle_timestamps', 'premium_features', 'weekly_contest', 'portal_stats']
+                for field in json_fields:
+                    if field in data and data[field]:
+                        try:
+                            data[field] = json.loads(data[field])
+                        except json.JSONDecodeError:
+                            logger.warning(f"Error decodificando {field} para {user_id}. Usando valor por defecto.")
+                            data[field] = [] if field == 'battle_timestamps' else {}
+                
+                # Convertir timestamps
+                timestamp_fields = ['ultima_alimentacion', 'ultima_actualizacion', 'last_epic_pull', 'last_legendary_pull']
+                for field in timestamp_fields:
+                    if field in data and data[field]:
+                        data[field] = data[field].timestamp()
+                
+                # Estructurar los datos
+                structured_data = {
                     "mascota": {
-                        "hambre": row[1],
-                        "energia": row[2],
-                        "nivel": row[3],
-                        "oro": row[4],
-                        "oro_hora": row[5]
+                        "hambre": data['mascota_hambre'],
+                        "energia": data['mascota_energia'],
+                        "nivel": data['mascota_nivel'],
+                        "oro": data['mascota_oro'],
+                        "oro_hora": data['mascota_oro_hora']
                     },
-                    "comida": row[6],
-                    "última_alimentación": row[7].timestamp(),
-                    "última_actualización": row[8].timestamp(),
-                    "inventario": json.loads(row[9]),
+                    "comida": data['comida'],
+                    "última_alimentación": data['ultima_alimentacion'],
+                    "última_actualización": data['ultima_actualizacion'],
+                    "inventario": data['inventario'],
                     "combat_stats": {
-                        "level": row[10],
-                        "exp": row[11],
-                        "battles_today": row[12],
-                        "battle_timestamps": battle_timestamps,  # Usa el valor manejado de forma segura
-                        "fire_coral": row[14] if len(row) > 14 else 0
+                        "level": data['combat_level'],
+                        "exp": data['combat_exp'],
+                        "battles_today": data['battles_today'],
+                        "battle_timestamps": data.get('battle_timestamps', []),
+                        "fire_coral": data.get('fire_coral', 0)
                     },
-                    "daily_ads": row[15] if len(row) > 15 else 0,
-                    "miniboss_attempts": row[16] if len(row) > 16 else 0,
-                    "gold_multiplier": row[17] if len(row) > 17 else 1.0,
-                    "premium_features": json.loads(row[18]) if len(row) > 18 and row[18] is not None else {},
-                    "weekly_contest": json.loads(row[19]) if len(row) > 19 and row[19] is not None else {},
-                    "portal_stats": json.loads(row[20]) if len(row) > 20 and row[20] is not None else {},
-                    "pity_counter": row[21] if len(row) > 21 else 0,
-                    "last_epic_pull": row[22].timestamp() if len(row) > 22 and row[22] is not None else 0,
-                    "last_legendary_pull": row[23].timestamp() if len(row) > 23 and row[23] is not None else 0
+                    "daily_ads": data.get('daily_ads', 0),
+                    "miniboss_attempts": data.get('miniboss_attempts', 0),
+                    "gold_multiplier": data.get('gold_multiplier', 1.0),
+                    "premium_features": data.get('premium_features', {}),
+                    "weekly_contest": data.get('weekly_contest', {}),
+                    "portal_stats": data.get('portal_stats', {}),
+                    "pity_counter": data.get('pity_counter', 0),
+                    "last_epic_pull": data.get('last_epic_pull', 0),
+                    "last_legendary_pull": data.get('last_legendary_pull', 0)
                 }
+                
+                return structured_data
     except Exception as e:
         logger.error(f"Error cargando datos para {user_id}: {e}")
         return None
