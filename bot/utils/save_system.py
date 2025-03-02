@@ -181,12 +181,21 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                         except json.JSONDecodeError:
                             logger.warning(f"Error decodificando {field} para {user_id}. Usando valor por defecto.")
                             data[field] = {} if field != 'inventario' else []
+                    else:
+                    # Si el campo no existe o es None, inicializarlo con un valor por defecto
+                        data[field] = {} if field != 'inventario' else []
                 
                 # Convertir timestamps
                 timestamp_fields = ['ultima_alimentacion', 'ultima_actualizacion', 'last_epic_pull', 'last_legendary_pull']
                 for field in timestamp_fields:
                     if field in data and data[field]:
                         data[field] = data[field].timestamp()
+
+                # Asegurarse de que 'timestamps' exista y tenga una estructura válida
+                if 'timestamps' not in data or not isinstance(data['timestamps'], dict):
+                    data['timestamps'] = {}
+                if 'battle' not in data['timestamps']:
+                    data['timestamps']['battle'] = []
                 
                 # Estructurar los datos
                 structured_data = {
@@ -218,6 +227,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     "last_epic_pull": data.get('last_epic_pull', 0),
                     "last_legendary_pull": data.get('last_legendary_pull', 0),
                     "timestamps": data.get('timestamps', {})
+                    
                 }
                 
                 return structured_data
