@@ -191,21 +191,21 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                 # Estructurar los datos
                 structured_data = {
                     "mascota": {
-                        "hambre": data['mascota_hambre'],
-                        "energia": data['mascota_energia'],
-                        "nivel": data['mascota_nivel'],
-                        "oro": data['mascota_oro'],
-                        "oro_hora": data['mascota_oro_hora']
+                        "hambre": data.get('mascota_hambre', 0),
+                        "energia": data.get('mascota_energia', 0),
+                        "nivel": data.get('mascota_nivel', 1),
+                        "oro": data.get('mascota_oro', 0),
+                        "oro_hora": data.get('mascota_oro_hora', 0)
                     },
-                    "comida": data['comida'],
-                    "última_alimentación": data['ultima_alimentacion'],
-                    "última_actualización": data['ultima_actualizacion'],
-                    "inventario": data['inventario'],
+                    "comida": data.get('comida', 0),
+                    "última_alimentación": data.get('ultima_alimentacion', 0),
+                    "última_actualización": data.get('ultima_actualizacion', 0),
+                    "inventario": data.get('inventario', []),
                     "combat_stats": {
-                        "level": data['combat_level'],
-                        "exp": data['combat_exp'],
-                        "battles_today": data['battles_today'],
-                        "battle_timestamps": data['timestamps'].get('battle', []),
+                        "level": data.get('combat_level', 1),
+                        "exp": data.get('combat_exp', 0),
+                        "battles_today": data.get('battles_today', 0),
+                        "battle_timestamps": data.get('timestamps', {}).get('battle', []),
                         "fire_coral": data.get('fire_coral', 0)
                     },
                     "daily_ads": data.get('daily_ads', 0),
@@ -217,8 +217,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     "pity_counter": data.get('pity_counter', 0),
                     "last_epic_pull": data.get('last_epic_pull', 0),
                     "last_legendary_pull": data.get('last_legendary_pull', 0),
-                    "daily_reward_timestamp": data['timestamps'].get('daily_reward'),
-                    "miniboss_timestamp": data['timestamps'].get('miniboss')
+                    "timestamps": data.get('timestamps', {})
                 }
                 
                 return structured_data
