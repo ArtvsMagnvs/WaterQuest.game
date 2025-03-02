@@ -80,6 +80,9 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = str(update.effective_user.id)
         player = load_game_data(user_id)
+        player = load_game_data(user_id)
+        print(f"[CARGADO] Batallas registradas al cargar: {len(player.get('timestamps', {}).get('battle', []))}")
+        print(f"[CARGADO] Timestamps al cargar: {player.get('timestamps', {}).get('battle', [])}")
         if not player:
             await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
