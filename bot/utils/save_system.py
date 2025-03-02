@@ -112,7 +112,6 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             'battle': data['combat_stats'].get('battle_timestamps', []),
             'daily_reward': data.get('daily_reward_timestamp'),
             'miniboss': data.get('miniboss_timestamp'),
-            # Añade aquí más tipos de timestamps según sea necesario
         }
         
         values = (

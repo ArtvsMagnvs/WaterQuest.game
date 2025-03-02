@@ -80,8 +80,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = str(update.effective_user.id)
         player = load_game_data(user_id)
-        print(f"[CARGADO] Batallas registradas al cargar: {len(player.get('timestamps', {}).get('battle', []))}")
-        print(f"[CARGADO] Timestamps al cargar: {player.get('timestamps', {}).get('battle', [])}")
+
         if not player:
             await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
@@ -175,22 +174,11 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         battles_left = max_battles - len(battle_timestamps)
         message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
 
-        battle_timestamps.append(current_time.isoformat())
-
-        # Actualiza player['timestamps']['battle'] con la lista filtrada de batallas de las últimas 24 horas
+        # Actualizamos player['timestamps']['battle'] con la lista filtrada de batallas de las últimas 24 horas
         player['timestamps']['battle'] = battle_timestamps
-
-        # Actualiza el contador de batallas hoy
         player['combat_stats']['battles_today'] = len(battle_timestamps)
 
-
         save_game_data(user_id, player)
-
-        
-
-        print(f"[GUARDADO] Batallas Hoy: {player['combat_stats']['battles_today']}")
-        print(f"[GUARDADO] Batallas registradas: {len(player['timestamps']['battle'])}")
-        print(f"[GUARDADO] Timestamps: {player['timestamps']['battle']}")
 
         keyboard = [
             [InlineKeyboardButton("⚔️ Otro Combate", callback_data="combate")],
@@ -211,8 +199,6 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
-
-
 
 
 
