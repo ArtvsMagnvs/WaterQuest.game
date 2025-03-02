@@ -176,9 +176,10 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Actualizamos player['timestamps']['battle'] con la lista filtrada de batallas de las últimas 24 horas
         player['timestamps']['battle'] = battle_timestamps
-        player['combat_stats']['battles_today'] = len(battle_timestamps)
 
         save_game_data(user_id, player)
+
+        message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {max_battles - len(battle_timestamps)}"
 
         keyboard = [
             [InlineKeyboardButton("⚔️ Otro Combate", callback_data="combate")],
@@ -199,6 +200,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 
