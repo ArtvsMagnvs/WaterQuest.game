@@ -64,6 +64,8 @@ def create_table():
 
 
 
+# ... (código anterior sin cambios)
+
 def save_game_data(user_id: str, data: Dict) -> bool:
     """Guarda los datos del usuario en la base de datos."""
     try:
@@ -71,13 +73,13 @@ def save_game_data(user_id: str, data: Dict) -> bool:
         INSERT INTO game_data (
             user_id, mascota_hambre, mascota_energia, mascota_nivel, mascota_oro, mascota_oro_hora, comida,
             ultima_alimentacion, ultima_actualizacion, inventario,
-            combat_level, combat_exp, battles_today, battle_timestamps, fire_coral,
+            combat_level, combat_exp, battles_today, fire_coral,
             daily_ads, miniboss_attempts, gold_multiplier,
             premium_features, weekly_contest, portal_stats,
-            pity_counter, last_epic_pull, last_legendary_pull
+            pity_counter, last_epic_pull, last_legendary_pull, timestamps
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         )
         ON CONFLICT (user_id) DO UPDATE SET
             mascota_hambre = EXCLUDED.mascota_hambre,
@@ -92,7 +94,6 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             combat_level = EXCLUDED.combat_level,
             combat_exp = EXCLUDED.combat_exp,
             battles_today = EXCLUDED.battles_today,
-            battle_timestamps = EXCLUDED.battle_timestamps,
             fire_coral = EXCLUDED.fire_coral,
             daily_ads = EXCLUDED.daily_ads,
             miniboss_attempts = EXCLUDED.miniboss_attempts,
@@ -102,8 +103,17 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             portal_stats = EXCLUDED.portal_stats,
             pity_counter = EXCLUDED.pity_counter,
             last_epic_pull = EXCLUDED.last_epic_pull,
-            last_legendary_pull = EXCLUDED.last_legendary_pull;
+            last_legendary_pull = EXCLUDED.last_legendary_pull,
+            timestamps = EXCLUDED.timestamps;
         """
+        
+        # Preparar el diccionario de timestamps
+        timestamps = {
+            'battle': data['combat_stats'].get('battle_timestamps', []),
+            'daily_reward': data.get('daily_reward_timestamp'),
+            'miniboss': data.get('miniboss_timestamp'),
+            # Añade aquí más tipos de timestamps según sea necesario
+        }
         
         values = (
             str(user_id),
@@ -119,7 +129,6 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             data['combat_stats']['level'],
             data['combat_stats']['exp'],
             data['combat_stats']['battles_today'],
-            json.dumps(data['combat_stats'].get('battle_timestamps', [])),  # Añade esta línea
             data['combat_stats']['fire_coral'],
             data.get('daily_ads', 0),
             data.get('miniboss_attempts', 0),
@@ -129,7 +138,8 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             json.dumps(data.get('portal_stats', {})),
             data.get('pity_counter', 0),
             datetime.fromtimestamp(data.get('last_epic_pull', 0)) if data.get('last_epic_pull') else None,
-            datetime.fromtimestamp(data.get('last_legendary_pull', 0)) if data.get('last_legendary_pull') else None
+            datetime.fromtimestamp(data.get('last_legendary_pull', 0)) if data.get('last_legendary_pull') else None,
+            json.dumps(timestamps)  # Nuevo campo timestamps
         )
         
         with get_db_connection() as conn:
@@ -163,14 +173,14 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                 data = dict(row)
                 
                 # Convertir campos JSON
-                json_fields = ['inventario', 'battle_timestamps', 'premium_features', 'weekly_contest', 'portal_stats']
+                json_fields = ['inventario', 'premium_features', 'weekly_contest', 'portal_stats', 'timestamps']
                 for field in json_fields:
                     if field in data and data[field]:
                         try:
                             data[field] = json.loads(data[field])
                         except json.JSONDecodeError:
                             logger.warning(f"Error decodificando {field} para {user_id}. Usando valor por defecto.")
-                            data[field] = [] if field == 'battle_timestamps' else {}
+                            data[field] = {} if field != 'inventario' else []
                 
                 # Convertir timestamps
                 timestamp_fields = ['ultima_alimentacion', 'ultima_actualizacion', 'last_epic_pull', 'last_legendary_pull']
@@ -195,7 +205,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                         "level": data['combat_level'],
                         "exp": data['combat_exp'],
                         "battles_today": data['battles_today'],
-                        "battle_timestamps": data.get('battle_timestamps', []),
+                        "battle_timestamps": data['timestamps'].get('battle', []),
                         "fire_coral": data.get('fire_coral', 0)
                     },
                     "daily_ads": data.get('daily_ads', 0),
@@ -206,13 +216,16 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     "portal_stats": data.get('portal_stats', {}),
                     "pity_counter": data.get('pity_counter', 0),
                     "last_epic_pull": data.get('last_epic_pull', 0),
-                    "last_legendary_pull": data.get('last_legendary_pull', 0)
+                    "last_legendary_pull": data.get('last_legendary_pull', 0),
+                    "daily_reward_timestamp": data['timestamps'].get('daily_reward'),
+                    "miniboss_timestamp": data['timestamps'].get('miniboss')
                 }
                 
                 return structured_data
     except Exception as e:
         logger.error(f"Error cargando datos para {user_id}: {e}")
         return None
+ag
 
 def get_all_user_ids() -> List[str]:
     """Recupera todos los user_ids de la base de datos."""

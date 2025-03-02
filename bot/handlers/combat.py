@@ -123,14 +123,17 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Verificar el número de batallas en las últimas 24 horas
         current_time = datetime.now()
         one_day_ago = current_time - timedelta(days=1)
-        stats["battle_timestamps"] = [ts for ts in stats["battle_timestamps"] if ts > one_day_ago.timestamp()]
+        
+        # Obtener los timestamps de batalla del nuevo campo 'timestamps'
+        battle_timestamps = player.get('timestamps', {}).get('battle', [])
+        battle_timestamps = [ts for ts in battle_timestamps if ts > one_day_ago.timestamp()]
         
         # Determinar el máximo de batallas permitidas
         max_battles = MAX_BATTLES_PER_DAY
         if player.get('premium_features', {}).get('premium_status', False):
             max_battles += 10  # Premium users get 10 extra battles
 
-        if len(stats["battle_timestamps"]) >= max_battles:
+        if len(battle_timestamps) >= max_battles:
             message = f"⚠️ Ya has realizado todas tus batallas en las últimas 24 horas! ({max_battles})"
             if update.callback_query:
                 await update.callback_query.message.reply_text(message, reply_markup=generar_botones())
@@ -139,15 +142,13 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # Añadir el timestamp actual
-        stats["battle_timestamps"].append(current_time.timestamp())
+        battle_timestamps.append(current_time.timestamp())
         
-        # Actualizar el contador de batallas diarias y el último timestamp
-        stats['battles_today'] = len(stats["battle_timestamps"])
-        stats['last_battle_timestamp'] = current_time.timestamp()
-
-        # Guardar los cambios
-        player["combat_stats"] = stats
-        save_game_data(str(user_id), player)
+        # Actualizar el contador de batallas diarias y los timestamps
+        stats['battles_today'] = len(battle_timestamps)
+        if 'timestamps' not in player:
+            player['timestamps'] = {}
+        player['timestamps']['battle'] = battle_timestamps
 
         # Generate enemy based on player's combat level
         combat_level = stats["level"]
@@ -197,16 +198,15 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
 
-    
 
         # Calcular batallas restantes
-        battles_left = max_battles - len(stats["battle_timestamps"])
+        battles_left = max_battles - len(battle_timestamps)
         message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
-
 
         # Save game data
         player["combat_stats"] = stats
         save_game_data(str(user_id), player)
+
         # Create reply keyboard
         keyboard = [
             [InlineKeyboardButton("⚔️ Otro Combate", callback_data="combate")],
@@ -225,6 +225,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 def exp_needed_for_level(level: int) -> int:
