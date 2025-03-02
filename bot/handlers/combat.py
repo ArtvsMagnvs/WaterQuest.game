@@ -86,7 +86,6 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         stats = player["combat_stats"]
 
-        # Ensure all necessary stats are initialized
         default_stats = {
             "level": 1,
             "hp": 100,
@@ -105,56 +104,47 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if key not in stats:
                 stats[key] = value
 
-        # Check pet level requirement
         if player["mascota"]["nivel"] < PET_LEVEL_REQUIREMENT:
             message = f"⚠️ Necesitas nivel {PET_LEVEL_REQUIREMENT} de mascota para acceder al Combate Rápido."
             await update.message.reply_text(message, reply_markup=generar_botones())
             return
 
-        # Verificar el número de batallas en las últimas 24 horas
         current_time = datetime.now()
         one_day_ago = current_time - timedelta(days=1)
-        
-        # Asegurarse de que 'timestamps' y 'battle' existan
+
         if 'timestamps' not in player:
             player['timestamps'] = {}
         if 'battle' not in player['timestamps']:
             player['timestamps']['battle'] = []
-        
-        # Filtrar timestamps de batalla de las últimas 24 horas
-        battle_timestamps = [ts for ts in player['timestamps']['battle'] if datetime.fromisoformat(ts) > one_day_ago]
-        
-        # Determinar el máximo de batallas permitidas
+
+        player['timestamps']['battle'] = [ts for ts in player['timestamps']['battle'] if datetime.fromisoformat(ts) > one_day_ago]
+        battle_timestamps = player['timestamps']['battle']
+
         max_battles = MAX_BATTLES_PER_DAY
         if player.get('premium_features', {}).get('premium_status', False):
-            max_battles += 10  # Premium users get 10 extra battles
+            max_battles += 10
 
         if len(battle_timestamps) >= max_battles:
             message = f"⚠️ Ya has realizado todas tus batallas en las últimas 24 horas! ({max_battles})"
             await update.message.reply_text(message, reply_markup=generar_botones())
             return
 
-        # Generate enemy based on player's combat level
         combat_level = stats["level"]
         enemy_level = max(0, combat_level - 1 + random.randint(0, 2))
-        
-        # Calculate battle result (base 75% win rate + agility bonus)
+
         base_chance = 0.75
         agi_bonus = stats["agi"] / 1000
         victory_chance = base_chance + agi_bonus
         victory = random.random() < victory_chance
 
         if victory:
-            # Calculate rewards
             is_premium = player.get('premium_features', {}).get('premium_status', False)
             rewards = calculate_rewards(enemy_level, combat_level, is_premium)
 
-            # Update stats
             stats["exp"] += rewards["exp"]
             player["mascota"]["oro_hora"] += rewards["gold_per_min"]
             stats["fire_coral"] += rewards["coral"]
 
-            # Level up check
             while stats["exp"] >= exp_needed_for_level(stats["level"]):
                 stats["exp"] -= exp_needed_for_level(stats["level"])
                 stats["level"] += 1
@@ -166,28 +156,21 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💰 Oro por minuto +{rewards['gold_per_min']}\n"
                 f"🌺 Coral de Fuego +{rewards['coral']}"
             )
-
-            if stats["level"] > combat_level:  # If leveled up
+            if stats["level"] > combat_level:
                 message += f"\n\n🎉 ¡Subiste al nivel de combate {stats['level']}!"
         else:
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
 
-        # Añadir el timestamp actual
         battle_timestamps.append(current_time.isoformat())
-        
-        # Actualizar el contador de batallas diarias y los timestamps
         stats['battles_today'] = len(battle_timestamps)
         player['timestamps']['battle'] = battle_timestamps
 
-        # Calcular batallas restantes
         battles_left = max_battles - len(battle_timestamps)
         message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
 
-        # Save game data
         player["combat_stats"] = stats
         save_game_data(user_id, player)
 
-        # Create reply keyboard
         keyboard = [
             [InlineKeyboardButton("⚔️ Otro Combate", callback_data="combate")],
             [InlineKeyboardButton("🏠 Volver", callback_data="start")]
