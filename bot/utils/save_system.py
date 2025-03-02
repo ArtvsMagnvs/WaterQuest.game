@@ -166,7 +166,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                 row = cur.fetchone()
                 
                 if not row:
-                    logger.info(f"No hay datos guardados para {user_id}.")
+                    logger.warning(f"No hay datos guardados para {user_id}.")
                     return None
                 
                 # Convertir el resultado a un diccionario
@@ -176,14 +176,19 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                 json_fields = ['inventario', 'premium_features', 'weekly_contest', 'portal_stats', 'timestamps']
                 for field in json_fields:
                     if field in data and data[field]:
-                        try:
-                            data[field] = json.loads(data[field])
-                        except json.JSONDecodeError:
-                            logger.warning(f"Error decodificando {field} para {user_id}. Usando valor por defecto.")
+                        if isinstance(data[field], str):
+                            try:
+                                data[field] = json.loads(data[field])
+                            except json.JSONDecodeError:
+                                logger.warning(f"Error decodificando {field} para {user_id}. Usando valor por defecto.")
+                                data[field] = {} if field != 'inventario' else []
+                        elif not isinstance(data[field], (dict, list)):
+                            logger.warning(f"Tipo inesperado para {field}: {type(data[field])}. Usando valor por defecto.")
                             data[field] = {} if field != 'inventario' else []
                     else:
-                    # Si el campo no existe o es None, inicializarlo con un valor por defecto
+                        # Si el campo no existe o es None, inicializarlo con un valor por defecto
                         data[field] = {} if field != 'inventario' else []
+                
                 
                 # Convertir timestamps
                 timestamp_fields = ['ultima_alimentacion', 'ultima_actualizacion', 'last_epic_pull', 'last_legendary_pull']
