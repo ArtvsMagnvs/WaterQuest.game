@@ -80,7 +80,6 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = str(update.effective_user.id)
         player = load_game_data(user_id)
-        player = load_game_data(user_id)
         print(f"[CARGADO] Batallas registradas al cargar: {len(player.get('timestamps', {}).get('battle', []))}")
         print(f"[CARGADO] Timestamps al cargar: {player.get('timestamps', {}).get('battle', [])}")
         if not player:
@@ -98,7 +97,6 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "def_m": 5,
             "agi": 10,
             "sta": 100,
-            "battles_today": 0,
             "last_battle_date": None,
             "exp": 0,
             "fire_coral": 0
@@ -123,6 +121,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"[ANTES] Batallas registradas: {len(player['timestamps']['battle'])}")
         print(f"[ANTES] Timestamps: {player['timestamps']['battle']}")
 
+        # Filtramos las batallas realizadas en las últimas 24 horas
         battle_timestamps = [ts for ts in player['timestamps']['battle'] if datetime.fromisoformat(ts) > one_day_ago]
 
         max_battles = MAX_BATTLES_PER_DAY
@@ -172,14 +171,20 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"[DESPUÉS] Batallas registradas: {len(battle_timestamps)}")
         print(f"[DESPUÉS] Timestamps: {battle_timestamps}")
 
-        stats['battles_today'] = len(battle_timestamps)
-        player['timestamps']['battle'] = battle_timestamps
-
+        # Actualizamos el contador de batallas restantes sin usar 'battles_today'
         battles_left = max_battles - len(battle_timestamps)
         message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
 
+        # Actualiza la cantidad de batallas hoy
+        player['combat_stats']['battles_today'] = len(player['timestamps']['battle'])
+
         player["combat_stats"] = stats
+        player['timestamps']['battle'] = battle_timestamps
+
         save_game_data(user_id, player)
+
+        
+
 
         print(f"[GUARDADO] Batallas registradas: {len(player['timestamps']['battle'])}")
         print(f"[GUARDADO] Timestamps: {player['timestamps']['battle']}")
@@ -203,6 +208,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 
