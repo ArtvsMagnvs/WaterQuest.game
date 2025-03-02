@@ -218,8 +218,8 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     "combat_stats": {
                         "level": data.get('combat_level', 1),
                         "exp": data.get('combat_exp', 0),
-                        "battles_today": data.get('battles_today', 0),
-                        "battle_timestamps": data.get('timestamps', {}).get('battle', []),
+                        "battles_today": int(data.get('battles_today', 0)),  # Asegurarse de que sea un entero
+                        "battle_timestamps": data['timestamps'].get('battle', []),
                         "fire_coral": data.get('fire_coral', 0)
                     },
                     "daily_ads": data.get('daily_ads', 0),

@@ -78,12 +78,11 @@ def calculate_rewards(enemy_level: int, combat_level: int, is_premium: bool = Fa
 async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle quick combat encounters."""
     try:
-        user_id = update.effective_user.id
-        player = load_game_data(str(user_id))
+        user_id = str(update.effective_user.id)
+        player = load_game_data(user_id)
         if not player:
             await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
-
 
         stats = player["combat_stats"]
 
@@ -105,28 +104,25 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for key, value in default_stats.items():
             if key not in stats:
                 stats[key] = value
-        
+
         # Check pet level requirement
         if player["mascota"]["nivel"] < PET_LEVEL_REQUIREMENT:
             message = f"⚠️ Necesitas nivel {PET_LEVEL_REQUIREMENT} de mascota para acceder al Combate Rápido."
-            if update.callback_query:
-                await update.callback_query.message.reply_text(message, reply_markup=generar_botones())
-            else:
-                await update.message.reply_text(message, reply_markup=generar_botones())
+            await update.message.reply_text(message, reply_markup=generar_botones())
             return
-        
-
-        # Inicializar battle_timestamps si no existe
-        if "battle_timestamps" not in stats:
-            stats["battle_timestamps"] = []
 
         # Verificar el número de batallas en las últimas 24 horas
         current_time = datetime.now()
         one_day_ago = current_time - timedelta(days=1)
         
-        # Obtener los timestamps de batalla del nuevo campo 'timestamps'
-        battle_timestamps = player.get('timestamps', {}).get('battle', [])
-        battle_timestamps = [ts for ts in battle_timestamps if ts > one_day_ago.timestamp()]
+        # Asegurarse de que 'timestamps' y 'battle' existan
+        if 'timestamps' not in player:
+            player['timestamps'] = {}
+        if 'battle' not in player['timestamps']:
+            player['timestamps']['battle'] = []
+        
+        # Filtrar timestamps de batalla de las últimas 24 horas
+        battle_timestamps = [ts for ts in player['timestamps']['battle'] if datetime.fromisoformat(ts) > one_day_ago]
         
         # Determinar el máximo de batallas permitidas
         max_battles = MAX_BATTLES_PER_DAY
@@ -135,20 +131,8 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if len(battle_timestamps) >= max_battles:
             message = f"⚠️ Ya has realizado todas tus batallas en las últimas 24 horas! ({max_battles})"
-            if update.callback_query:
-                await update.callback_query.message.reply_text(message, reply_markup=generar_botones())
-            else:
-                await update.message.reply_text(message, reply_markup=generar_botones())
+            await update.message.reply_text(message, reply_markup=generar_botones())
             return
-
-        # Añadir el timestamp actual
-        battle_timestamps.append(current_time.timestamp())
-        
-        # Actualizar el contador de batallas diarias y los timestamps
-        stats['battles_today'] = len(battle_timestamps)
-        if 'timestamps' not in player:
-            player['timestamps'] = {}
-        player['timestamps']['battle'] = battle_timestamps
 
         # Generate enemy based on player's combat level
         combat_level = stats["level"]
@@ -156,7 +140,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Calculate battle result (base 75% win rate + agility bonus)
         base_chance = 0.75
-        agi_bonus = stats["agi"] / 1000  # Now we can safely use stats["agi"]
+        agi_bonus = stats["agi"] / 1000
         victory_chance = base_chance + agi_bonus
         victory = random.random() < victory_chance
 
@@ -174,17 +158,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             while stats["exp"] >= exp_needed_for_level(stats["level"]):
                 stats["exp"] -= exp_needed_for_level(stats["level"])
                 stats["level"] += 1
-                
-                # Update combat stats on level up
-                level = stats["level"]
-                stats.update({
-                    "hp": 100 + (level * 10),
-                    "atk": 10 + (level * 2),
-                    "mp": 50 + (level * 5),
-                    "def_p": 5 + (level * 1.5),
-                    "def_m": 5 + (level * 1.5),
-                    "agi": 10 + (level * 1)
-                })
+                stats = update_stats_on_level_up(stats)
 
             message = (
                 f"🗡 ¡Victoria!\n"
@@ -198,6 +172,12 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
 
+        # Añadir el timestamp actual
+        battle_timestamps.append(current_time.isoformat())
+        
+        # Actualizar el contador de batallas diarias y los timestamps
+        stats['battles_today'] = len(battle_timestamps)
+        player['timestamps']['battle'] = battle_timestamps
 
         # Calcular batallas restantes
         battles_left = max_battles - len(battle_timestamps)
@@ -205,7 +185,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Save game data
         player["combat_stats"] = stats
-        save_game_data(str(user_id), player)
+        save_game_data(user_id, player)
 
         # Create reply keyboard
         keyboard = [
@@ -215,6 +195,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         if update.callback_query:
+            await update.callback_query.answer()
             await update.callback_query.message.reply_text(message, reply_markup=reply_markup)
         else:
             await update.message.reply_text(message, reply_markup=reply_markup)
@@ -222,6 +203,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in quick_combat function: {e}")
         if update.callback_query:
+            await update.callback_query.answer()
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
