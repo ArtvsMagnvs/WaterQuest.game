@@ -175,17 +175,18 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                         "level": row[10],
                         "exp": row[11],
                         'battle_timestamps': json.loads(row[12]) if row[12] else [],
-                        "fire_coral": row[13]
+                        "battles_today": row[13],
+                        "fire_coral": row[14]
                     },
-                    "daily_ads": row[14],
-                    "miniboss_attempts": row[15],
-                    "gold_multiplier": row[16],
-                    "premium_features": json.loads(row[17]),
-                    "weekly_contest": json.loads(row[18]),
-                    "portal_stats": json.loads(row[19]),
-                    "pity_counter": row[20],
-                    "last_epic_pull": row[21].timestamp() if row[21] else 0,
-                    "last_legendary_pull": row[22].timestamp() if row[22] else 0
+                    "daily_ads": row[15],
+                    "miniboss_attempts": row[16],
+                    "gold_multiplier": row[17],
+                    "premium_features": json.loads(row[18]),
+                    "weekly_contest": json.loads(row[19]),
+                    "portal_stats": json.loads(row[20]),
+                    "pity_counter": row[21],
+                    "last_epic_pull": row[22].timestamp() if row[22] else 0,
+                    "last_legendary_pull": row[23].timestamp() if row[23] else 0
                 }
     except Exception as e:
         logger.error(f"Error cargando datos para {user_id}: {e}")
