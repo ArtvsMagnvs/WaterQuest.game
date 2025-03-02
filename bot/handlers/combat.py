@@ -175,12 +175,14 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         battles_left = max_battles - len(battle_timestamps)
         message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
 
-        # Actualiza la cantidad de batallas hoy
-        player['combat_stats']['battles_today'] = len(player['timestamps']['battle'])
-        
+        battle_timestamps.append(current_time.isoformat())
 
-        player["combat_stats"] = stats
+        # Actualiza player['timestamps']['battle'] con la lista filtrada de batallas de las últimas 24 horas
         player['timestamps']['battle'] = battle_timestamps
+
+        # Actualiza el contador de batallas hoy
+        player['combat_stats']['battles_today'] = len(battle_timestamps)
+
 
         save_game_data(user_id, player)
 
