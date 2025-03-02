@@ -112,8 +112,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current_time = datetime.now()
         one_day_ago = current_time - timedelta(days=1)
 
-        if 'timestamps' not in player:
-            player['timestamps'] = {}
+        # Recuperamos las batallas realizadas en las últimas 24 horas del timestamp 'battle'
         if 'battle' not in player['timestamps']:
             player['timestamps']['battle'] = []
 
@@ -123,7 +122,8 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Filtramos las batallas realizadas en las últimas 24 horas
         battle_timestamps = [ts for ts in player['timestamps']['battle'] if datetime.fromisoformat(ts) > one_day_ago]
 
-        max_battles = MAX_BATTLES_PER_DAY
+        # Limitar el número de batallas a 20 al día
+        max_battles = 20
         if player.get('premium_features', {}).get('premium_status', False):
             max_battles += 10
 
@@ -165,28 +165,30 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
 
+        # Actualizamos la lista de batallas con el nuevo timestamp
         battle_timestamps.append(current_time.isoformat())
 
         print(f"[DESPUÉS] Batallas registradas: {len(battle_timestamps)}")
         print(f"[DESPUÉS] Timestamps: {battle_timestamps}")
 
-        # Actualizamos el contador de batallas restantes sin usar 'battles_today'
-        battles_left = max_battles - len(battle_timestamps)
-        message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
-
         # Actualizamos player['timestamps']['battle'] con la lista filtrada de batallas de las últimas 24 horas
         player['timestamps']['battle'] = battle_timestamps
 
+        # Guardamos los datos del jugador
         save_game_data(user_id, player)
 
-        message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {max_battles - len(battle_timestamps)}"
+        # Calculamos las batallas restantes
+        battles_left = max_battles - len(battle_timestamps)
+        message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
 
+        # Preparar el teclado de respuesta
         keyboard = [
             [InlineKeyboardButton("⚔️ Otro Combate", callback_data="combate")],
             [InlineKeyboardButton("🏠 Volver", callback_data="start")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
+        # Enviar la respuesta al usuario
         if update.callback_query:
             await update.callback_query.answer()
             await update.callback_query.message.reply_text(message, reply_markup=reply_markup)
@@ -200,6 +202,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 
