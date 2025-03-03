@@ -116,9 +116,10 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'battle' not in player['timestamps']:
             player['timestamps']['battle'] = []
 
-        # Filtrar y eliminar batallas que ya pasaron las 24 horas
+        # Filtrar y eliminar batallas que ya pasaron las 24 horas, asegurándonos de que sean cadenas ISO
         player['timestamps']['battle'] = [
-            ts for ts in player['timestamps']['battle'] if datetime.fromisoformat(ts) > one_day_ago
+            ts for ts in player['timestamps']['battle']
+            if isinstance(ts, str) and datetime.fromisoformat(ts) > one_day_ago
         ]
 
         # Limitar el número de batallas a 20 al día
@@ -195,6 +196,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 
