@@ -119,14 +119,10 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"Jugador {user_id} no cumple el requisito de nivel de mascota para combate rápido.")
             return
 
-        # Verificamos si ya ha pasado el día, si es así, asignamos nuevos 20 puntos de combate
+        # Reiniciamos el contador de batallas a 20 si es un nuevo día (a las 00h)
         current_time = datetime.now()
-        last_battle_date = player.get("last_battle_date", None)
-        
-        if not last_battle_date or current_time.day != datetime.fromisoformat(last_battle_date).day:
-            player["combat_stats"]["battles_today"] = 20  # Se asignan 20 batallas por día a las 00h
-            player["combat_stats"]["last_battle_date"] = current_time.isoformat()  # Guardamos la fecha del día
-        
+        player["combat_stats"]["battles_today"] = 20  # Reiniciamos las batallas hoy a las 00h
+
         # Verificamos si hay puntos de batalla suficientes
         if player["combat_stats"]["battles_today"] <= 0:
             message = "⚠️ Ya no tienes puntos de batalla disponibles hoy. Vuelve mañana para más batallas."
@@ -202,6 +198,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 
