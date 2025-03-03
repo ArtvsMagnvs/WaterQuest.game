@@ -6,6 +6,15 @@ import random
 import logging
 from datetime import datetime, timedelta
 
+# Configurar el logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
 from bot.config.settings import (
     SUCCESS_MESSAGES, 
     ERROR_MESSAGES, 
@@ -18,20 +27,6 @@ from bot.config.settings import (
 from bot.utils.keyboard import generar_botones
 from bot.utils.save_system import save_game_data, load_game_data
 from bot.config.premium_settings import PREMIUM_FEATURES
-
-# Configurar el logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
-# Número de batallas diarias por defecto
-DAILY_BATTLE_POINTS = 20
-PET_LEVEL_REQUIREMENT = 5
-ERROR_MESSAGES = {"no_game": "No tienes datos de juego.", "generic_error": "Ha ocurrido un error."}
 
 def calculate_rewards(enemy_level: int, player_level: int, is_premium: bool = False):
     """Calculate rewards based on enemy level and player level."""
@@ -89,105 +84,144 @@ def calculate_rewards(enemy_level: int, combat_level: int, is_premium: bool = Fa
 
 
 
-#---------------------------------------------------------------
+import logging
+from datetime import datetime, timedelta
+import random
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
 
-def load_game_data(user_id):
-    # Simulación de carga de datos del usuario
-    pass
-
-def save_game_data(user_id, data):
-    # Simulación de guardado de datos del usuario
-    pass
-
-def generar_botones():
-    # Simulación de generación de botones
-    pass
-
-def calculate_rewards(enemy_level, combat_level, is_premium):
-    return {"exp": 50, "gold_per_min": 5, "coral": 1}
-
-def exp_needed_for_level(level):
-    return level * 100
-
-def update_stats_on_level_up(stats):
-    stats["hp"] += 10
-    stats["atk"] += 2
-    return stats
+# Configuración del logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle quick combat encounters with a point-based battle system."""
+    """Handle quick combat encounters."""
     try:
         user_id = str(update.effective_user.id)
+        logger.info(f"Inicio de combate rápido para el jugador {user_id}")
         player = load_game_data(user_id)
 
         if not player:
+            logger.warning(f"Jugador {user_id} no tiene datos de juego.")
             await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
-        stats = player.get("combat_stats", {})
-        player.setdefault("battles_today", DAILY_BATTLE_POINTS)
-        last_reset = player.get("last_battle_reset")
-        current_time = datetime.now()
-        
-        # Reset points if 24 hours have passed
-        if not last_reset or datetime.fromisoformat(last_reset) < current_time - timedelta(days=1):
-            player["battles_today"] = DAILY_BATTLE_POINTS
-            player["last_battle_reset"] = current_time.isoformat()
+        stats = player["combat_stats"]
 
-        # Verificar si quedan batallas disponibles
-        if player["battles_today"] <= 0:
-            await update.message.reply_text("⚠️ No tienes más batallas disponibles hoy.", reply_markup=generar_botones())
-            return
+        default_stats = {
+            "level": 1,
+            "hp": 100,
+            "atk": 10,
+            "mp": 50,
+            "def_p": 5,
+            "def_m": 5,
+            "agi": 10,
+            "sta": 100,
+            "last_battle_date": None,
+            "exp": 0,
+            "fire_coral": 0
+        }
+        for key, value in default_stats.items():
+            if key not in stats:
+                stats[key] = value
 
         if player["mascota"]["nivel"] < PET_LEVEL_REQUIREMENT:
-            await update.message.reply_text(f"⚠️ Necesitas nivel {PET_LEVEL_REQUIREMENT} de mascota para combatir.", reply_markup=generar_botones())
+            message = f"⚠️ Necesitas nivel {PET_LEVEL_REQUIREMENT} de mascota para acceder al Combate Rápido."
+            await update.message.reply_text(message, reply_markup=generar_botones())
+            logger.info(f"Jugador {user_id} no cumple el requisito de nivel de mascota para combate rápido.")
             return
 
-        combat_level = stats.get("level", 1)
+        current_time = datetime.now()
+        one_day_ago = current_time - timedelta(days=1)
+
+        # Recuperamos las batallas realizadas en las últimas 24 horas del timestamp 'battle'
+        if 'battle' not in player['timestamps']:
+            player['timestamps']['battle'] = []
+
+        # Filtrar y eliminar batallas que ya pasaron las 24 horas, asegurándonos de que sean cadenas ISO
+        player['timestamps']['battle'] = [
+            ts for ts in player['timestamps']['battle']
+            if isinstance(ts, str) and datetime.fromisoformat(ts) > one_day_ago
+        ]
+
+        # Limitar el número de batallas a 20 al día
+        max_battles = 20
+        if player.get('premium_features', {}).get('premium_status', False):
+            max_battles += 10
+
+        if len(player['timestamps']['battle']) >= max_battles:
+            message = f"⚠️ Ya has realizado todas tus batallas en las últimas 24 horas! ({max_battles})"
+            await update.message.reply_text(message, reply_markup=generar_botones())
+            logger.info(f"Jugador {user_id} ha alcanzado el límite de batallas en las últimas 24 horas.")
+            return
+
+        combat_level = stats["level"]
         enemy_level = max(0, combat_level - 1 + random.randint(0, 2))
-        victory_chance = 0.75 + (stats.get("agi", 10) / 1000)
-        victory = random.random() < victory_chance
         
+        base_chance = 0.75
+        agi_bonus = stats["agi"] / 1000
+        victory_chance = base_chance + agi_bonus
+        victory = random.random() < victory_chance
+
         if victory:
-            is_premium = player.get("premium_features", {}).get("premium_status", False)
+            is_premium = player.get('premium_features', {}).get('premium_status', False)
             rewards = calculate_rewards(enemy_level, combat_level, is_premium)
-            stats["exp"] = stats.get("exp", 0) + rewards["exp"]
+
+            stats["exp"] += rewards["exp"]
             player["mascota"]["oro_hora"] += rewards["gold_per_min"]
-            stats["fire_coral"] = stats.get("fire_coral", 0) + rewards["coral"]
-            
+            stats["fire_coral"] += rewards["coral"]
+
             while stats["exp"] >= exp_needed_for_level(stats["level"]):
                 stats["exp"] -= exp_needed_for_level(stats["level"])
                 stats["level"] += 1
                 stats = update_stats_on_level_up(stats)
-            
+
             message = (
                 f"🗡 ¡Victoria!\n"
                 f"💫 EXP ganada: {rewards['exp']}\n"
                 f"💰 Oro por minuto +{rewards['gold_per_min']}\n"
                 f"🌺 Coral de Fuego +{rewards['coral']}"
             )
+
             if stats["level"] > combat_level:
-                message += f"\n\n🎉 ¡Subiste al nivel {stats['level']}!"
+                message += f"\n\n🎉 ¡Subiste al nivel de combate {stats['level']}!"
+            logger.info(f"Jugador {user_id} ha ganado la batalla y ha recibido recompensas.")
         else:
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
-        
-        # Restar un punto por batalla realizada
-        player["battles_today"] -= 1
+            logger.info(f"Jugador {user_id} ha perdido la batalla.")
+
+        # Actualizamos la lista de batallas con el nuevo timestamp
+        player['timestamps']['battle'].append(current_time.isoformat())
+
+        # Guardamos los datos del jugador
         save_game_data(user_id, player)
-        
-        message += f"\n\n⚔️ Batallas restantes hoy: {player['battles_today']}"
-        
-        keyboard = [[InlineKeyboardButton("⚔️ Otro Combate", callback_data="combate")],
-                    [InlineKeyboardButton("🏠 Volver", callback_data="start")]]
+        logger.info(f"Datos guardados para el jugador {user_id}.")
+
+        # Calculamos las batallas restantes
+        battles_left = max_battles - len(player['timestamps']['battle'])
+        message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
+
+        # Preparar el teclado de respuesta
+        keyboard = [
+            [InlineKeyboardButton("⚔️ Otro Combate", callback_data="combate")],
+            [InlineKeyboardButton("🏠 Volver", callback_data="start")]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
+
+        # Enviar la respuesta al usuario
         if update.callback_query:
             await update.callback_query.answer()
             await update.callback_query.message.reply_text(message, reply_markup=reply_markup)
         else:
             await update.message.reply_text(message, reply_markup=reply_markup)
-    
+
     except Exception as e:
+        logger.error(f"Error en quick_combat para el jugador {user_id}: {e}")
         if update.callback_query:
             await update.callback_query.answer()
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
