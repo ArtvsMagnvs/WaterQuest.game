@@ -3,8 +3,17 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 import random
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
+
+# Configurar el logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 from bot.config.settings import (
     SUCCESS_MESSAGES, 
@@ -75,13 +84,30 @@ def calculate_rewards(enemy_level: int, combat_level: int, is_premium: bool = Fa
 
 
 
+import logging
+from datetime import datetime, timedelta
+import random
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
+
+# Configuración del logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
 async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle quick combat encounters."""
     try:
         user_id = str(update.effective_user.id)
+        logger.info(f"Inicio de combate rápido para el jugador {user_id}")
         player = load_game_data(user_id)
 
         if not player:
+            logger.warning(f"Jugador {user_id} no tiene datos de juego.")
             await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
@@ -107,6 +133,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if player["mascota"]["nivel"] < PET_LEVEL_REQUIREMENT:
             message = f"⚠️ Necesitas nivel {PET_LEVEL_REQUIREMENT} de mascota para acceder al Combate Rápido."
             await update.message.reply_text(message, reply_markup=generar_botones())
+            logger.info(f"Jugador {user_id} no cumple el requisito de nivel de mascota para combate rápido.")
             return
 
         current_time = datetime.now()
@@ -130,6 +157,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(player['timestamps']['battle']) >= max_battles:
             message = f"⚠️ Ya has realizado todas tus batallas en las últimas 24 horas! ({max_battles})"
             await update.message.reply_text(message, reply_markup=generar_botones())
+            logger.info(f"Jugador {user_id} ha alcanzado el límite de batallas en las últimas 24 horas.")
             return
 
         combat_level = stats["level"]
@@ -162,14 +190,17 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             if stats["level"] > combat_level:
                 message += f"\n\n🎉 ¡Subiste al nivel de combate {stats['level']}!"
+            logger.info(f"Jugador {user_id} ha ganado la batalla y ha recibido recompensas.")
         else:
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
+            logger.info(f"Jugador {user_id} ha perdido la batalla.")
 
         # Actualizamos la lista de batallas con el nuevo timestamp
         player['timestamps']['battle'].append(current_time.isoformat())
 
         # Guardamos los datos del jugador
         save_game_data(user_id, player)
+        logger.info(f"Datos guardados para el jugador {user_id}.")
 
         # Calculamos las batallas restantes
         battles_left = max_battles - len(player['timestamps']['battle'])
@@ -190,12 +221,13 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(message, reply_markup=reply_markup)
 
     except Exception as e:
-        logger.error(f"Error in quick_combat function: {e}")
+        logger.error(f"Error en quick_combat para el jugador {user_id}: {e}")
         if update.callback_query:
             await update.callback_query.answer()
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 

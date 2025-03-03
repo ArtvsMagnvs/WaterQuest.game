@@ -7,6 +7,15 @@ from datetime import datetime
 from typing import Dict, Optional, List
 from psycopg2.extras import RealDictCursor
 
+# Configurar el logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
 # Configuración de la base de datos
 import os
 
@@ -63,8 +72,6 @@ def create_table():
     logger.info("Tabla game_data verificada/existente.")
 
 
-
-# ... (código anterior sin cambios)
 
 def save_game_data(user_id: str, data: Dict) -> bool:
     """Guarda los datos del usuario en la base de datos."""
@@ -234,6 +241,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     
                 }
                 
+                logger.info(f"Datos cargados para {user_id}.")
                 return structured_data
     except Exception as e:
         logger.error(f"Error cargando datos para {user_id}: {e}")
