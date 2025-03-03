@@ -207,6 +207,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 def exp_needed_for_level(level: int) -> int:
     """Calculate the experience needed for the next level."""
     return int(100 * (1.5 ** (level - 1)))
