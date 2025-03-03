@@ -82,6 +82,11 @@ def calculate_rewards(enemy_level: int, combat_level: int, is_premium: bool = Fa
         "coral": coral
     }
 
+import random
+from datetime import datetime
+from telegram import Update
+from telegram.ext import ContextTypes, InlineKeyboardButton, InlineKeyboardMarkup
+
 async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle quick combat encounters."""
     try:
@@ -109,6 +114,8 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "fire_coral": 0,
             "battles_today": 20  # Inicializamos las batallas diarias a 20
         }
+
+        # Aseguramos que todas las estadísticas estén inicializadas
         for key, value in default_stats.items():
             if key not in stats:
                 stats[key] = value
@@ -118,10 +125,6 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(message, reply_markup=generar_botones())
             logger.info(f"Jugador {user_id} no cumple el requisito de nivel de mascota para combate rápido.")
             return
-
-        # Reiniciamos el contador de batallas a 20 si es un nuevo día (a las 00h)
-        current_time = datetime.now()
-        player["combat_stats"]["battles_today"] = 20  # Reiniciamos las batallas hoy a las 00h
 
         # Verificamos si hay puntos de batalla suficientes
         if player["combat_stats"]["battles_today"] <= 0:
@@ -166,8 +169,36 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
             logger.info(f"Jugador {user_id} ha perdido la batalla.")
 
-        # Restamos 1 punto de batalla
+        # Restamos 1 punto de batalla y verificamos el consumo
         player["combat_stats"]["battles_today"] -= 1
+        logger.info(f"Puntos de batalla después de la batalla: {player['combat_stats']['battles_today']}")
+
+        # Realizamos 10 comprobaciones para asegurar el consumo correcto
+        for i in range(10):
+            # Diferentes formas de comprobar que los puntos de batalla han sido consumidos
+            if i == 0:
+                logger.info(f"Comprobación {i+1} - Batallas restantes: {player['combat_stats']['battles_today']}")
+            elif i == 1:
+                assert player["combat_stats"]["battles_today"] == 19, f"Comprobación {i+1} fallida. Puntos de batalla esperados: 19"
+                logger.info(f"Comprobación {i+1} exitosa - Restan {player['combat_stats']['battles_today']} batallas.")
+            elif i == 2:
+                print(f"Comprobación {i+1}: Batallas restantes: {player['combat_stats']['battles_today']}")
+            elif i == 3:
+                assert player["combat_stats"]["battles_today"] >= 0, f"Comprobación {i+1} fallida. Puntos de batalla negativos: {player['combat_stats']['battles_today']}"
+            elif i == 4:
+                if player["combat_stats"]["battles_today"] < 20:
+                    logger.info(f"Comprobación {i+1} exitosa - Se han consumido puntos. Restan: {player['combat_stats']['battles_today']}")
+            elif i == 5:
+                assert isinstance(player["combat_stats"]["battles_today"], int), f"Comprobación {i+1} fallida. Tipo de datos incorrecto: {type(player['combat_stats']['battles_today'])}"
+            elif i == 6:
+                logger.info(f"Comprobación {i+1} - Puntos restantes: {player['combat_stats']['battles_today']}")
+            elif i == 7:
+                assert player["combat_stats"]["battles_today"] >= 0, "Puntos de batalla no deberían ser negativos."
+            elif i == 8:
+                if player["combat_stats"]["battles_today"] == 19:
+                    logger.info(f"Comprobación {i+1} exitosa - Batallas restantes: {player['combat_stats']['battles_today']}")
+            elif i == 9:
+                assert player["combat_stats"]["battles_today"] == 19, f"Comprobación {i+1} fallida. Puntos esperados: 19"
 
         # Guardamos los datos del jugador
         save_game_data(user_id, player)
@@ -198,6 +229,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 
