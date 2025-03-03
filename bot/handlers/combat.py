@@ -82,23 +82,6 @@ def calculate_rewards(enemy_level: int, combat_level: int, is_premium: bool = Fa
         "coral": coral
     }
 
-
-
-import logging
-from datetime import datetime, timedelta
-import random
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
-
-# Configuración del logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
 async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle quick combat encounters."""
     try:
@@ -122,9 +105,9 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "def_m": 5,
             "agi": 10,
             "sta": 100,
-            "last_battle_date": None,
             "exp": 0,
-            "fire_coral": 0
+            "fire_coral": 0,
+            "battles_today": 20  # Inicializamos las batallas diarias a 20
         }
         for key, value in default_stats.items():
             if key not in stats:
@@ -136,33 +119,25 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"Jugador {user_id} no cumple el requisito de nivel de mascota para combate rápido.")
             return
 
+        # Verificamos si ya ha pasado el día, si es así, asignamos nuevos 20 puntos de combate
         current_time = datetime.now()
-        one_day_ago = current_time - timedelta(days=1)
-
-        # Recuperamos las batallas realizadas en las últimas 24 horas del timestamp 'battle'
-        if 'battle' not in player['timestamps']:
-            player['timestamps']['battle'] = []
-
-        # Filtrar y eliminar batallas que ya pasaron las 24 horas, asegurándonos de que sean cadenas ISO
-        player['timestamps']['battle'] = [
-            ts for ts in player['timestamps']['battle']
-            if isinstance(ts, str) and datetime.fromisoformat(ts) > one_day_ago
-        ]
-
-        # Limitar el número de batallas a 20 al día
-        max_battles = 20
-        if player.get('premium_features', {}).get('premium_status', False):
-            max_battles += 10
-
-        if len(player['timestamps']['battle']) >= max_battles:
-            message = f"⚠️ Ya has realizado todas tus batallas en las últimas 24 horas! ({max_battles})"
+        last_battle_date = player.get("last_battle_date", None)
+        
+        if not last_battle_date or current_time.day != datetime.fromisoformat(last_battle_date).day:
+            player["combat_stats"]["battles_today"] = 20  # Se asignan 20 batallas por día a las 00h
+            player["combat_stats"]["last_battle_date"] = current_time.isoformat()  # Guardamos la fecha del día
+        
+        # Verificamos si hay puntos de batalla suficientes
+        if player["combat_stats"]["battles_today"] <= 0:
+            message = "⚠️ Ya no tienes puntos de batalla disponibles hoy. Vuelve mañana para más batallas."
             await update.message.reply_text(message, reply_markup=generar_botones())
-            logger.info(f"Jugador {user_id} ha alcanzado el límite de batallas en las últimas 24 horas.")
+            logger.info(f"Jugador {user_id} ya no tiene puntos de batalla disponibles hoy.")
             return
 
+        # Realizamos el combate
         combat_level = stats["level"]
         enemy_level = max(0, combat_level - 1 + random.randint(0, 2))
-        
+
         base_chance = 0.75
         agi_bonus = stats["agi"] / 1000
         victory_chance = base_chance + agi_bonus
@@ -195,16 +170,16 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
             logger.info(f"Jugador {user_id} ha perdido la batalla.")
 
-        # Actualizamos la lista de batallas con el nuevo timestamp
-        player['timestamps']['battle'].append(current_time.isoformat())
+        # Restamos 1 punto de batalla
+        player["combat_stats"]["battles_today"] -= 1
 
         # Guardamos los datos del jugador
         save_game_data(user_id, player)
         logger.info(f"Datos guardados para el jugador {user_id}.")
 
         # Calculamos las batallas restantes
-        battles_left = max_battles - len(player['timestamps']['battle'])
-        message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
+        battles_left = player["combat_stats"]["battles_today"]
+        message += f"\n\n⚔️ Batallas restantes hoy: {battles_left}"
 
         # Preparar el teclado de respuesta
         keyboard = [
@@ -227,6 +202,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
+
 
 
 
