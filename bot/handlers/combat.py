@@ -75,57 +75,13 @@ def calculate_rewards(enemy_level: int, combat_level: int, is_premium: bool = Fa
 
 
 
-import logging
-from datetime import datetime, timedelta
-import random
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
-from bot.utils import load_game_data, save_game_data, ERROR_MESSAGES, generar_botones
-
-# Configuración de los loggers para obtener detalles de lo que sucede
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
-MAX_BATTLES_PER_DAY = 20
-PET_LEVEL_REQUIREMENT = 5  # Ejemplo de nivel necesario para la mascota
-
-def exp_needed_for_level(level):
-    """Calcula la experiencia necesaria para el siguiente nivel."""
-    return level * 100  # Ejemplo simple de cálculo
-
-def calculate_rewards(enemy_level, combat_level, is_premium):
-    """Calcula las recompensas por victoria en combate."""
-    exp = 10 + combat_level - enemy_level
-    gold_per_min = 5 + combat_level // 2
-    coral = 2 if is_premium else 1
-    return {"exp": exp, "gold_per_min": gold_per_min, "coral": coral}
-
-def update_stats_on_level_up(stats):
-    """Actualiza las estadísticas del jugador al subir de nivel."""
-    stats["hp"] += 10
-    stats["atk"] += 2
-    stats["mp"] += 5
-    stats["def_p"] += 1
-    stats["def_m"] += 1
-    stats["agi"] += 1
-    stats["sta"] += 5
-    return stats
-
 async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Maneja los combates rápidos."""
+    """Handle quick combat encounters."""
     try:
         user_id = str(update.effective_user.id)
-        logger.debug(f"Comenzando combate rápido para el usuario {user_id}")
-
         player = load_game_data(user_id)
 
         if not player:
-            logger.error(f"No se encontró juego para el usuario {user_id}")
             await update.message.reply_text(ERROR_MESSAGES["no_game"])
             return
 
@@ -148,7 +104,6 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if key not in stats:
                 stats[key] = value
 
-        # Comprobamos si la mascota tiene el nivel necesario
         if player["mascota"]["nivel"] < PET_LEVEL_REQUIREMENT:
             message = f"⚠️ Necesitas nivel {PET_LEVEL_REQUIREMENT} de mascota para acceder al Combate Rápido."
             await update.message.reply_text(message, reply_markup=generar_botones())
@@ -157,25 +112,21 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current_time = datetime.now()
         one_day_ago = current_time - timedelta(days=1)
 
-        if 'timestamps' not in player:
-            player['timestamps'] = {}
+        # Recuperamos las batallas realizadas en las últimas 24 horas del timestamp 'battle'
         if 'battle' not in player['timestamps']:
             player['timestamps']['battle'] = []
 
-        logger.debug(f"[ANTES] Batallas registradas: {len(player['timestamps']['battle'])}")
-        logger.debug(f"[ANTES] Timestamps: {player['timestamps']['battle']}")
+        print(f"[ANTES] Batallas registradas: {len(player['timestamps']['battle'])}")
+        print(f"[ANTES] Timestamps: {player['timestamps']['battle']}")
 
         # Filtramos las batallas realizadas en las últimas 24 horas
         battle_timestamps = [ts for ts in player['timestamps']['battle'] if datetime.fromisoformat(ts) > one_day_ago]
-        
-        logger.debug(f"Batallas recientes: {battle_timestamps}")
 
-        # Determinamos las batallas máximas permitidas por día
-        max_battles = MAX_BATTLES_PER_DAY
+        # Limitar el número de batallas a 20 al día
+        max_battles = 20
         if player.get('premium_features', {}).get('premium_status', False):
             max_battles += 10
 
-        # Si se ha alcanzado el límite de batallas
         if len(battle_timestamps) >= max_battles:
             message = f"⚠️ Ya has realizado todas tus batallas en las últimas 24 horas! ({max_battles})"
             await update.message.reply_text(message, reply_markup=generar_botones())
@@ -183,7 +134,7 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         combat_level = stats["level"]
         enemy_level = max(0, combat_level - 1 + random.randint(0, 2))
-
+        
         base_chance = 0.75
         agi_bonus = stats["agi"] / 1000
         victory_chance = base_chance + agi_bonus
@@ -214,28 +165,30 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             message = "❌ ¡Derrota! Mejor suerte la próxima vez."
 
-        # Agregamos el timestamp de la batalla
+        # Actualizamos la lista de batallas con el nuevo timestamp
         battle_timestamps.append(current_time.isoformat())
 
-        logger.debug(f"[DESPUÉS] Batallas registradas: {len(battle_timestamps)}")
-        logger.debug(f"[DESPUÉS] Timestamps: {battle_timestamps}")
+        print(f"[DESPUÉS] Batallas registradas: {len(battle_timestamps)}")
+        print(f"[DESPUÉS] Timestamps: {battle_timestamps}")
+
+        # Actualizamos player['timestamps']['battle'] con la lista filtrada de batallas de las últimas 24 horas
+        player['timestamps']['battle'] = battle_timestamps
+
+        # Guardamos los datos del jugador
+        save_game_data(user_id, player)
 
         # Calculamos las batallas restantes
         battles_left = max_battles - len(battle_timestamps)
         message += f"\n\n⚔️ Batallas restantes en las próximas 24 horas: {battles_left}"
 
-        # Actualizamos player['timestamps']['battle'] con la lista filtrada de batallas de las últimas 24 horas
-        player['timestamps']['battle'] = battle_timestamps
-
-        save_game_data(user_id, player)
-
-        # Creamos los botones para la interfaz de usuario
+        # Preparar el teclado de respuesta
         keyboard = [
             [InlineKeyboardButton("⚔️ Otro Combate", callback_data="combate")],
             [InlineKeyboardButton("🏠 Volver", callback_data="start")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
+        # Enviar la respuesta al usuario
         if update.callback_query:
             await update.callback_query.answer()
             await update.callback_query.message.reply_text(message, reply_markup=reply_markup)
@@ -243,13 +196,12 @@ async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(message, reply_markup=reply_markup)
 
     except Exception as e:
-        logger.error(f"Error en la función quick_combat: {e}")
+        logger.error(f"Error in quick_combat function: {e}")
         if update.callback_query:
             await update.callback_query.answer()
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
         else:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones())
-
 
 
 
