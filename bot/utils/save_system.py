@@ -1,5 +1,3 @@
-#save_system.py
-
 import psycopg2
 import json
 import logging
@@ -33,10 +31,18 @@ logger = logging.getLogger(__name__)
 
 def get_db_connection():
     """Conectar a la base de datos PostgreSQL."""
-    return psycopg2.connect(**DB_CONFIG)
+    logger.info("Intentando obtener conexión a la base de datos...")
+    try:
+        connection = psycopg2.connect(**DB_CONFIG)
+        logger.info("Conexión establecida con la base de datos.")
+        return connection
+    except Exception as e:
+        logger.error(f"Error al conectar a la base de datos: {e}")
+        raise
 
 def create_table():
     """Crear la tabla si no existe."""
+    logger.info("Verificando si la tabla 'game_data' existe...")
     query = """
     CREATE TABLE IF NOT EXISTS game_data (
         user_id TEXT PRIMARY KEY,
@@ -65,17 +71,20 @@ def create_table():
         last_legendary_pull TIMESTAMP
     );
     """
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(query)
-            conn.commit()
-    logger.info("Tabla game_data verificada/existente.")
-
-
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                conn.commit()
+        logger.info("Tabla 'game_data' verificada/existente.")
+    except Exception as e:
+        logger.error(f"Error al crear la tabla 'game_data': {e}")
+        raise
 
 def save_game_data(user_id: str, data: Dict) -> bool:
     """Guarda los datos del usuario en la base de datos."""
     try:
+        logger.info(f"Guardando datos para el usuario {user_id}...")
         query = """
         INSERT INTO game_data (
             user_id, mascota_hambre, mascota_energia, mascota_nivel, mascota_oro, mascota_oro_hora, comida,
@@ -121,6 +130,9 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             'miniboss': data.get('miniboss_timestamp'),
         }
         
+        # Log de los valores que vamos a insertar
+        logger.debug(f"Valores a insertar: {data}")
+
         values = (
             str(user_id),
             data['mascota']['hambre'],
@@ -162,6 +174,7 @@ def save_game_data(user_id: str, data: Dict) -> bool:
 def load_game_data(user_id: str) -> Optional[Dict]:
     """Carga los datos del usuario desde la base de datos."""
     try:
+        logger.info(f"Cargando datos para el usuario {user_id}...")
         query = """
         SELECT * FROM game_data WHERE user_id = %s;
         """
@@ -182,19 +195,14 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                 json_fields = ['inventario', 'premium_features', 'weekly_contest', 'portal_stats', 'timestamps']
                 for field in json_fields:
                     if field in data and data[field]:
-                        if isinstance(data[field], str):
-                            try:
+                        try:
+                            if isinstance(data[field], str):
                                 data[field] = json.loads(data[field])
-                            except json.JSONDecodeError:
-                                logger.warning(f"Error decodificando {field} para {user_id}. Usando valor por defecto.")
-                                data[field] = {} if field != 'inventario' else []
-                        elif not isinstance(data[field], (dict, list)):
-                            logger.warning(f"Tipo inesperado para {field}: {type(data[field])}. Usando valor por defecto.")
+                        except json.JSONDecodeError:
+                            logger.warning(f"Error al decodificar {field} para {user_id}. Usando valor por defecto.")
                             data[field] = {} if field != 'inventario' else []
                     else:
-                        # Si el campo no existe o es None, inicializarlo con un valor por defecto
                         data[field] = {} if field != 'inventario' else []
-                
                 
                 # Convertir timestamps
                 timestamp_fields = ['ultima_alimentacion', 'ultima_actualizacion', 'last_epic_pull', 'last_legendary_pull']
@@ -202,12 +210,6 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     if field in data and data[field]:
                         data[field] = data[field].timestamp()
 
-                # Asegurarse de que 'timestamps' exista y tenga una estructura válida
-                if 'timestamps' not in data or not isinstance(data['timestamps'], dict):
-                    data['timestamps'] = {}
-                if 'battle' not in data['timestamps']:
-                    data['timestamps']['battle'] = []
-                
                 # Estructurar los datos
                 structured_data = {
                     "mascota": {
@@ -224,7 +226,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     "combat_stats": {
                         "level": data.get('combat_level', 1),
                         "exp": data.get('combat_exp', 0),
-                        "battles_today": int(data.get('battles_today', 0)),  # Asegurarse de que sea un entero
+                        "battles_today": int(data.get('battles_today', 0)),
                         "battle_timestamps": data['timestamps'].get('battle', []),
                         "fire_coral": data.get('fire_coral', 0)
                     },
@@ -235,10 +237,6 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     "weekly_contest": data.get('weekly_contest', {}),
                     "portal_stats": data.get('portal_stats', {}),
                     "pity_counter": data.get('pity_counter', 0),
-                    "last_epic_pull": data.get('last_epic_pull', 0),
-                    "last_legendary_pull": data.get('last_legendary_pull', 0),
-                    "timestamps": data.get('timestamps', {})
-                    
                 }
                 
                 logger.info(f"Datos cargados para {user_id}.")
@@ -246,6 +244,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
     except Exception as e:
         logger.error(f"Error cargando datos para {user_id}: {e}")
         return None
+
 
 
 def get_all_user_ids() -> List[str]:
