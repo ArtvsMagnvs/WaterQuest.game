@@ -1,20 +1,21 @@
 # handlers/combat.py
 
-from telegram.ext import ContextTypes
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+"""
+Este módulo maneja la lógica de combate rápido en el juego.
+Incluye funciones para calcular recompensas, manejar encuentros de combate,
+y gestionar la progresión del jugador.
+"""
+
+# Importaciones estándar
 import random
 import logging
 from datetime import datetime, timedelta
 
-# Configurar el logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+# Importaciones de Telegram
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
 
+# Importaciones locales
 from bot.config.settings import (
     SUCCESS_MESSAGES, 
     ERROR_MESSAGES, 
@@ -27,6 +28,17 @@ from bot.config.settings import (
 from bot.utils.keyboard import generar_botones
 from bot.utils.save_system import save_game_data, load_game_data
 from bot.config.premium_settings import PREMIUM_FEATURES
+
+# Configuración del logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+
 
 def calculate_rewards(enemy_level: int, player_level: int, is_premium: bool = False):
     """Calculate rewards based on enemy level and player level."""
@@ -81,11 +93,6 @@ def calculate_rewards(enemy_level: int, combat_level: int, is_premium: bool = Fa
         "gold_per_min": gold_per_min,
         "coral": coral
     }
-
-import random
-from datetime import datetime
-from telegram import Update
-from telegram.ext import ContextTypes, InlineKeyboardButton, InlineKeyboardMarkup
 
 async def quick_combat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle quick combat encounters."""
