@@ -1,7 +1,7 @@
 # handlers/combat.py
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import random
 import logging
 from datetime import datetime, timedelta
