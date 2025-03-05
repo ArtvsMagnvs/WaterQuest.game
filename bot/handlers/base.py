@@ -16,6 +16,7 @@ from bot.handlers.miniboss import miniboss_handler
 from bot.handlers.daily import claim_daily_reward
 from bot.handlers.shop import tienda, comprar
 from bot.handlers.pet import recolectar, alimentar, estado
+from bot.handlers.social import social_menu, handle_social_button
 
 def initialize_combat_stats(level):
     """Initialize combat stats for a new player."""
@@ -66,7 +67,8 @@ def initialize_new_player():
         "weekly_contest": {},
         "portal_stats": {},
         "pity_counter": 0,
-        "last_epic_pull": None
+        "last_epic_pull": None,
+        "herraduras": 0
     }
 
 async def start(update: Update, context: CallbackContext):
@@ -126,7 +128,8 @@ async def button(update: Update, context: CallbackContext):
             "tienda": tienda,
             "combate": quick_combat,
             "miniboss": miniboss_handler,
-            "daily_reward": claim_daily_reward
+            "daily_reward": claim_daily_reward,
+            "social": social_menu
         }
 
         if query.data in handlers:

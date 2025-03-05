@@ -68,7 +68,8 @@ def create_table():
         portal_stats TEXT,
         pity_counter INT,
         last_epic_pull TIMESTAMP,
-        last_legendary_pull TIMESTAMP
+        last_legendary_pull TIMESTAMP,
+        herraduras INT
     );
     """
     try:
@@ -92,10 +93,11 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             combat_level, combat_exp, battles_today, fire_coral,
             daily_ads, miniboss_attempts, gold_multiplier,
             premium_features, weekly_contest, portal_stats,
-            pity_counter, last_epic_pull, last_legendary_pull, timestamps
+            pity_counter, last_epic_pull, last_legendary_pull, timestamps,
+            herraduras  -- Nuevo campo añadido
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         )
         ON CONFLICT (user_id) DO UPDATE SET
             mascota_hambre = EXCLUDED.mascota_hambre,
@@ -120,7 +122,8 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             pity_counter = EXCLUDED.pity_counter,
             last_epic_pull = EXCLUDED.last_epic_pull,
             last_legendary_pull = EXCLUDED.last_legendary_pull,
-            timestamps = EXCLUDED.timestamps;
+            timestamps = EXCLUDED.timestamps,
+            herraduras = EXCLUDED.herraduras;  -- Nuevo campo añadido
         """
         
         # Preparar el diccionario de timestamps
@@ -157,7 +160,8 @@ def save_game_data(user_id: str, data: Dict) -> bool:
             data.get('pity_counter', 0),
             datetime.fromtimestamp(data.get('last_epic_pull', 0)) if data.get('last_epic_pull') else None,
             datetime.fromtimestamp(data.get('last_legendary_pull', 0)) if data.get('last_legendary_pull') else None,
-            json.dumps(timestamps)  # Nuevo campo timestamps
+            json.dumps(timestamps),
+            data.get('herraduras', 0)  
         )
         
         with get_db_connection() as conn:
@@ -237,6 +241,7 @@ def load_game_data(user_id: str) -> Optional[Dict]:
                     "weekly_contest": data.get('weekly_contest', {}),
                     "portal_stats": data.get('portal_stats', {}),
                     "pity_counter": data.get('pity_counter', 0),
+                    "herraduras": data.get('herraduras', 0)
                 }
                 
                 logger.info(f"Datos cargados para {user_id}.")

@@ -15,6 +15,7 @@ def generar_botones(player: Optional[dict] = None) -> InlineKeyboardMarkup:
     botones.append([InlineKeyboardButton("📊 Ver Estado 📊", callback_data="estado")])
     botones.append([InlineKeyboardButton("🏪 Ir a la Tienda 🏪", callback_data="tienda")])
     botones.append([InlineKeyboardButton("🎁 Bonus Gratis (Ads)", callback_data="ads_menu")])
+    botones.append([InlineKeyboardButton("👥 Social 👥", callback_data="social")])
     
     # Combat buttons
     botones.append([InlineKeyboardButton("⚔️ Combate Rápido ⚔️", callback_data="combate")])

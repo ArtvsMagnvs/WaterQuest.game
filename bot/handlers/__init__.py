@@ -21,6 +21,11 @@ from .pet import (
     estado, 
     check_premium_expiry
 )
+from .social import (  
+    social_menu,
+    handle_social_button,
+    handle_social_reward
+)
 
 from .daily import claim_daily_reward, check_daily_reset, check_weekly_tickets
 from bot.config.premium_settings import PREMIUM_FEATURES
@@ -65,4 +70,9 @@ __all__ = [
     # Portal handlers
     'portal_menu',
     'spin_portal',
+
+    # Social handlers  # Añadido
+    'social_menu',
+    'handle_social_button',
+    'handle_social_reward',
 ]

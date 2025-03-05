@@ -57,6 +57,7 @@ from bot.handlers import (
 )
 
 from bot.handlers.miniboss import retry_miniboss_battle
+from bot.handlers.social import social_menu
 
 from bot.handlers.ads import (
     ads_menu,
@@ -121,6 +122,7 @@ def initialize_new_player():
             "attempts_today": 0,
             "last_attempt_date": None
         },
+        "herraduras": 0
     }
 
 
@@ -225,6 +227,8 @@ async def button(update: Update, context: CallbackContext):
             await premium_shop(update, context)
         elif query.data == "weekly_contest":
             await weekly_contest_menu(update, context)
+        elif query.data == "social":
+            await social_menu(update, context)
         elif query.data == "comprar_fragmentos":
             await comprar_fragmentos(update, context)
         else:
