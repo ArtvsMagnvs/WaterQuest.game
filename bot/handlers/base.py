@@ -216,6 +216,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🌺 *Coral de Fuego:* {player['combat_stats']['fire_coral']}\n"
             f"💫 *EXP:* {player['combat_stats']['exp']}\n\n"
             f"🎯 *Batallas Hoy:* {player['combat_stats']['battles_today']}/20\n"
+            f"🐎 *Herraduras:* {player['herraduras']}\n"
         )
 
         # Add premium info if any premium feature is active

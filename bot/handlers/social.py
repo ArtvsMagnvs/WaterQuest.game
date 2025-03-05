@@ -37,12 +37,24 @@ async def social_menu(update: Update, context: CallbackContext):
     if query:
         await query.answer()
 
+    user_id = str(update.effective_user.id)
+    player = load_game_data(user_id)
+
     keyboard = []
     for action_id, action in SOCIAL_ACTIONS.items():
-        button = InlineKeyboardButton(action["name"], url=action["link"])
+        # Añadir información de recompensa al botón de enlace
+        button_text = f"{action['name']} (+{action['reward']} 🐎)"
+        button = InlineKeyboardButton(button_text, url=action["link"])
         keyboard.append([button])
+        
         if "message" in action:
-            keyboard.append([InlineKeyboardButton(action["message"], callback_data=f"reward_{action_id}")])
+            # Botón informativo que no hace nada al ser clicado
+            info_button = InlineKeyboardButton(action["message"], callback_data="do_nothing")
+            keyboard.append([info_button])
+        
+        # Botón para reclamar la recompensa después de visitar el enlace
+        claim_button = InlineKeyboardButton(f"Reclamar {action['reward']} 🐎", callback_data=f"claim_{action_id}")
+        keyboard.append([claim_button])
 
     keyboard.append([InlineKeyboardButton("🔙 Volver", callback_data="start")])
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -54,8 +66,8 @@ async def social_menu(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text(text, reply_markup=reply_markup)
 
-async def handle_social_reward(update: Update, context: CallbackContext):
-    """Handle the reward for completing a social action."""
+async def handle_social_claim(update: Update, context: CallbackContext):
+    """Handle claiming rewards for social actions."""
     query = update.callback_query
     await query.answer()
 
@@ -90,17 +102,19 @@ async def handle_social_reward(update: Update, context: CallbackContext):
 
     await query.message.reply_text(
         f"¡Has completado la acción '{action['name']}'! "
-        f"Has recibido {action['reward']} Herraduras como recompensa.",
+        f"Has recibido {action['reward']} 🐎 Herraduras como recompensa.",
         reply_markup=generar_botones(player)
     )
 
 async def handle_social_button(update: Update, context: CallbackContext):
     """Handle social mission button presses."""
     query = update.callback_query
-    await query.answer()
-
-    if query.data.startswith("reward_"):
-        await handle_social_reward(update, context)
+    
+    if query.data == "do_nothing":
+        # No hacer nada para los botones informativos
+        await query.answer()
+    elif query.data.startswith("claim_"):
+        await handle_social_claim(update, context)
     else:
         logger.warning(f"Unhandled social callback_data: {query.data}")
         await query.message.reply_text(ERROR_MESSAGES["generic_error"])
