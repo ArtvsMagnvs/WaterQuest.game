@@ -52,12 +52,11 @@ from bot.handlers import (
     tienda,
     comprar,
     check_premium_expiry,
-    premium_shop,
-    get_premium_item,
     comprar_fragmentos,
     portal_menu,
     spin_portal
 )
+from bot.handlers.shop import premium_shop, get_premium_item
 from bot.handlers.miniboss import retry_miniboss_battle
 from bot.handlers.social import social_menu, handle_social_visit, handle_social_button
 from bot.handlers.ads import (
