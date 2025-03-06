@@ -72,6 +72,7 @@ async def handle_social_visit(update: Update, context: CallbackContext):
         await query.message.reply_text("Por favor, inicia el juego primero con /start.")
         return
     
+    # Verificar si la misión ya fue completada
     if player.get(f"completed_{action_id}"):
         await query.answer("Ya has recibido esta recompensa.", show_alert=True)
         return
@@ -99,4 +100,6 @@ async def handle_social_button(update: Update, context: CallbackContext):
     else:
         logger.warning(f"Unhandled social callback_data: {query.data}")
         await query.message.reply_text(ERROR_MESSAGES["generic_error"])
+
+
 
