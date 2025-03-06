@@ -16,7 +16,7 @@ from bot.handlers.miniboss import miniboss_handler
 from bot.handlers.daily import claim_daily_reward
 from bot.handlers.shop import tienda, comprar
 from bot.handlers.pet import recolectar, alimentar, estado
-from bot.handlers.social import social_menu, handle_social_button
+from bot.handlers.social import social_menu,handle_social_visit, handle_social_button
 
 def initialize_combat_stats(level):
     """Initialize combat stats for a new player."""
