@@ -57,7 +57,7 @@ from bot.handlers import (
 )
 
 from bot.handlers.miniboss import retry_miniboss_battle
-from bot.handlers.social import social_menu
+from bot.handlers.social import social_menu, handle_social_claim, handle_social_button
 
 from bot.handlers.ads import (
     ads_menu,
