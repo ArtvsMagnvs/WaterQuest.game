@@ -80,13 +80,13 @@ async def handle_social_visit(update: Update, context: CallbackContext):
     await asyncio.sleep(10)
     
     # Otorgar la recompensa en la columna correspondiente
-    player["herraduras"] = player.get("herraduras", 0) + action["reward"]
+    player["fire_coral"] = player.get("fire_coral", 0) + action["reward"]
     player[f"completed_{action_id}"] = True
     save_game_data(user_id, player)
     
     await query.message.reply_text(
         f"¡Has completado la acción '{action['name']}'! "
-        f"Has recibido {action['reward']} 🐎 Herraduras como recompensa.",
+        f"Has recibido {action['reward']} 🐎 fire coral como recompensa.",
         reply_markup=generar_botones(player)
     )
 
