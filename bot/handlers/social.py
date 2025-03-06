@@ -38,9 +38,6 @@ async def social_menu(update: Update, context: CallbackContext):
     if query:
         await query.answer()
 
-    user_id = str(update.effective_user.id)
-    player = load_game_data(user_id)
-
     keyboard = []
     for action_id, action in SOCIAL_ACTIONS.items():
         button_text = f"{action['name']} (+{action['reward']} 🐎)"
@@ -75,18 +72,16 @@ async def handle_social_visit(update: Update, context: CallbackContext):
         await query.message.reply_text("Por favor, inicia el juego primero con /start.")
         return
     
-    if "social_rewards" not in player:
-        player["social_rewards"] = {}
-    
-    if action_id in player["social_rewards"]:
+    if player.get(f"completed_{action_id}"):
         await query.answer("Ya has recibido esta recompensa.", show_alert=True)
         return
     
     await query.answer("Recompensa en camino...", show_alert=True)
     await asyncio.sleep(10)
     
+    # Otorgar la recompensa en la columna correspondiente
     player["herraduras"] = player.get("herraduras", 0) + action["reward"]
-    player["social_rewards"][action_id] = True
+    player[f"completed_{action_id}"] = True
     save_game_data(user_id, player)
     
     await query.message.reply_text(
@@ -104,3 +99,4 @@ async def handle_social_button(update: Update, context: CallbackContext):
     else:
         logger.warning(f"Unhandled social callback_data: {query.data}")
         await query.message.reply_text(ERROR_MESSAGES["generic_error"])
+
