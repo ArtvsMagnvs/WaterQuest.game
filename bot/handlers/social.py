@@ -69,21 +69,27 @@ async def handle_social_visit(update: Update, context: CallbackContext):
     player = load_game_data(user_id)
     
     if not player:
+        logger.warning(f"Player data not found for user: {user_id}")
         await query.message.reply_text("Por favor, inicia el juego primero con /start.")
         return
     
     # Verificar si la misión ya fue completada
     if player.get(f"completed_{action_id}"):
+        logger.info(f"Mission {action_id} already completed for user {user_id}")
         await query.answer("Ya has recibido esta recompensa.", show_alert=True)
         return
     
+    logger.info(f"Starting reward process for user {user_id} on action {action_id}")
     await query.answer("Recompensa en camino...", show_alert=True)
     await asyncio.sleep(10)
     
     # Otorgar la recompensa en la columna correspondiente
-    player["fire_coral"] = player.get("fire_coral", 0) + action["reward"]
+    current_fire_coral = player.get("fire_coral", 0)
+    player["fire_coral"] = current_fire_coral + action["reward"]
     player[f"completed_{action_id}"] = True
     save_game_data(user_id, player)
+
+    logger.info(f"Recompensa de {action['reward']} 🐎 fire coral entregada al usuario {user_id}")
     
     await query.message.reply_text(
         f"¡Has completado la acción '{action['name']}'! "
@@ -100,6 +106,7 @@ async def handle_social_button(update: Update, context: CallbackContext):
     else:
         logger.warning(f"Unhandled social callback_data: {query.data}")
         await query.message.reply_text(ERROR_MESSAGES["generic_error"])
+
 
 
 
