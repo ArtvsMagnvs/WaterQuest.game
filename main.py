@@ -1,22 +1,19 @@
 # main.py
-
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application, 
-    CommandHandler, 
-    CallbackQueryHandler, 
-    ContextTypes,
-    CallbackContext
-)
+import os
 import logging
 import asyncio
 from datetime import datetime
-from bot.handlers.base import initialize_combat_stats
-from bot.handlers.ads import register_handlers
-from bot.handlers.shop import premium_shop, get_premium_item, comprar_fragmentos
-from telegram.ext import JobQueue
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    CallbackContext,
+    JobQueue
+)
 
-# Import configurations and save system
+# Configuraciones y sistema de guardado
 from bot.config.settings import (
     TOKEN, 
     SUCCESS_MESSAGES, 
@@ -25,52 +22,54 @@ from bot.config.settings import (
 )
 from bot.config.premium_settings import PREMIUM_FEATURES
 from bot.utils.save_system import save_game_data, load_game_data, get_all_user_ids, backup_data
-from bot.utils.keyboard import (
-    generar_botones,
-#    create_waterquest_menu_keyboard,
-#    create_waterquest_dialogue_keyboard
-)
+from bot.utils.keyboard import generar_botones
 
-
-#----------------------------------------------------------
-# Temporarily comment out TON SDK imports
+# Import temporalmente (TON SDK comentado)
 class TonClientException(Exception):
     pass
 TonClientError = TonClientException
-
-# Comment out TON initialization
 # ton_client = initialize_ton_client()
 # wallet_manager = initialize_wallet_manager()
-#----------------------------------------------------------
 
-# Import all handlers
+# Importar todos los handlers
 from bot.handlers import (
-    start, button, error_handler,
-    help_command, stats_command,
-    recolectar, alimentar, estado,
-    quick_combat, view_combat_stats,
-    miniboss_handler, siguiente_miniboss, retirarse_miniboss, 
-    claim_daily_reward, check_daily_reset, check_weekly_tickets,
-    tienda, comprar,
-    check_premium_expiry, 
-    portal_menu, spin_portal
+    start,  # Si tienes otro start, lo diferenciamos
+    button,
+    error_handler,
+    help_command,
+    stats_command,
+    recolectar,
+    alimentar,
+    estado,
+    quick_combat,
+    view_combat_stats,
+    miniboss_handler,
+    siguiente_miniboss,
+    retirarse_miniboss, 
+    claim_daily_reward,
+    check_daily_reset,
+    check_weekly_tickets,
+    tienda,
+    comprar,
+    check_premium_expiry,
+    premium_shop,
+    get_premium_item,
+    comprar_fragmentos,
+    portal_menu,
+    spin_portal
 )
-
 from bot.handlers.miniboss import retry_miniboss_battle
 from bot.handlers.social import social_menu, handle_social_visit, handle_social_button
-
 from bot.handlers.ads import (
     ads_menu,
     process_ad_watch,
-    retry_combat_ad
+    retry_combat_ad,
+    register_handlers
 )
-
-# Imports from Portal free Tickets for New Players
-from bot.handlers.base import initialize_new_player
+# Portal free Tickets for New Players
+from bot.handlers.base import initialize_combat_stats
 from bot.handlers.portal import give_free_tickets_to_new_player
-
-
-#weekly contest test mode
+# Weekly contest
 from bot.handlers.weekly_usdt_contest import (
     setup_weekly_contest, 
     start_weekly_contest, 
@@ -79,8 +78,9 @@ from bot.handlers.weekly_usdt_contest import (
     TEST_MODE
 )
 
+# Función de inicialización de un nuevo jugador (se redefine aquí para asegurar la creación de datos)
 def initialize_new_player():
-    """Initialize data for a new player."""
+    """Inicializa los datos para un nuevo jugador."""
     return {
         "mascota": {
             "hambre": 100,
@@ -125,133 +125,106 @@ def initialize_new_player():
         "herraduras": 0
     }
 
-
-
-
+# Handler principal para /start
 async def start(update: Update, context: CallbackContext):
-    """Initialize user data and start the game."""
+    """Inicializa los datos del usuario y comienza el juego."""
     try:
         user_id = update.effective_user.id
-        
-        # Initialize players dict in context if not exists
         player_data = load_game_data(user_id)
         if player_data is None:
-            # Initialize new player
             player_data = initialize_new_player()
             save_game_data(user_id, player_data)
-            
-            if update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(
-                    SUCCESS_MESSAGES["welcome"],
-                    reply_markup=generar_botones(player_data)
-                )
-            elif update.message:
-                await update.message.reply_text(
-                    SUCCESS_MESSAGES["welcome"],
-                    reply_markup=generar_botones(player_data)
-                )
+            mensaje = SUCCESS_MESSAGES["welcome"]
         else:
-            if update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(
-                    "¡Ya tienes una mascota! Usa los botones para jugar.",
-                    reply_markup=generar_botones(player_data)
-                )
-            elif update.message:
-                await update.message.reply_text(
-                    "¡Ya tienes una mascota! Usa los botones para jugar.",
-                    reply_markup=generar_botones(player_data)
-                )
+            mensaje = "¡Ya tienes una mascota! Usa los botones para jugar."
+            
+        if update.callback_query and update.callback_query.message:
+            await update.callback_query.message.reply_text(mensaje, reply_markup=generar_botones(player_data))
+        elif update.message:
+            await update.message.reply_text(mensaje, reply_markup=generar_botones(player_data))
     except Exception as e:
-        logger.error(f"Error in start command: {e}")
+        logger.error(f"Error en el comando start: {e}")
         if update.callback_query and update.callback_query.message:
             await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"])
         elif update.message:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"])
 
-async def button(update: Update, context: CallbackContext):
-    """Handle button presses."""
+# Handler para los botones de callback
+async def button_handler(update: Update, context: CallbackContext):
+    """Maneja las pulsaciones de botones."""
     try:
         query = update.callback_query
         try:
             await query.answer()
-        except:
-            # Si el callback_query expiró, continuamos sin error
-            pass
-
-        # Get player data for menu generation
+        except Exception:
+            pass  # Si el callback_query expiró
+        
         user_id = query.from_user.id
         player = load_game_data(user_id)
         if player is None:
-            logger.warning(f"Player data not found for user_id: {user_id}")
+            logger.warning(f"Datos de jugador no encontrados para el user_id: {user_id}")
             await query.message.reply_text(ERROR_MESSAGES["player_not_found"])
             return
 
-        # Route to appropriate handler based on callback_data
-        if query.data == "start":
+        # Ruteo según el callback_data
+        data = query.data
+        if data == "start":
             await start(update, context)
-        elif query.data == "recolectar":
+        elif data == "recolectar":
             await recolectar(update, context)
-        elif query.data == "alimentar":
+        elif data == "alimentar":
             await alimentar(update, context)
-        elif query.data == "estado":
+        elif data == "estado":
             await estado(update, context)
-        elif query.data == "tienda":
+        elif data == "tienda":
             await tienda(update, context)
-        elif query.data == "combate":
+        elif data == "combate":
             await quick_combat(update, context)
-        elif query.data == "miniboss":
+        elif data == "miniboss":
             await miniboss_handler(update, context)
-        elif query.data == "siguiente_miniboss":
+        elif data == "siguiente_miniboss":
             await siguiente_miniboss(update, context)
-        elif query.data == "retirarse_miniboss":
+        elif data == "retirarse_miniboss":
             await retirarse_miniboss(update, context)
-        elif query.data.startswith("retry_miniboss_"):
+        elif data.startswith("retry_miniboss_"):
             await retry_miniboss_battle(update, context)
-        elif query.data == "daily_reward":
+        elif data == "daily_reward":
             await claim_daily_reward(update, context)
-        elif query.data.startswith("comprar_"):
-            item_name = query.data.split("_")[1]
+        elif data.startswith("comprar_"):
+            item_name = data.split("_")[1]
             await comprar(update, context, item_name)
-        elif query.data == "portal":
+        elif data == "portal":
             await portal_menu(update, context)
-        elif query.data.startswith("portal_spin_"):
+        elif data.startswith("portal_spin_"):
             await spin_portal(update, context)
-        elif query.data == "ads_menu":
+        elif data == "ads_menu":
             await ads_menu(update, context)
-        elif query.data == "watch_ad":
+        elif data == "watch_ad":
             await process_ad_watch(update, context)
-        elif query.data.startswith("retry_miniboss_"):
-            combat_type = query.data.split("_")[3]  # Extraer el tipo de combate
+        elif data.startswith("retry_miniboss_"):
+            combat_type = data.split("_")[3]
             await retry_combat_ad(update, context, combat_type)
-        elif query.data == "premium_shop":
+        elif data == "premium_shop":
             await premium_shop(update, context)
-        elif query.data == "weekly_contest":
+        elif data == "weekly_contest":
             await weekly_contest_menu(update, context)
-        elif query.data == "social":
+        elif data == "social":
             await social_menu(update, context)
-        elif query.data == "comprar_fragmentos":
+        elif data == "comprar_fragmentos":
             await comprar_fragmentos(update, context)
         else:
-            logger.warning(f"Unhandled callback_data: {query.data}")
-            await query.message.reply_text(
-                ERROR_MESSAGES["generic_error"],
-                reply_markup=generar_botones(player)
-            )
+            logger.warning(f"callback_data no manejada: {data}")
+            await query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones(player))
     except Exception as e:
-        logger.error(f"Error in button handler: {e}")
+        logger.error(f"Error en el handler de button: {e}")
         if update.callback_query and update.callback_query.message:
-            await update.callback_query.message.reply_text(
-                ERROR_MESSAGES["generic_error"],
-                reply_markup=generar_botones(player)
-            )
+            await update.callback_query.message.reply_text(ERROR_MESSAGES["generic_error"], reply_markup=generar_botones(player))
         elif update.message:
             await update.message.reply_text(ERROR_MESSAGES["generic_error"])
 
-
-
-async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle errors."""
-    logger.error(f"Error occurred: {context.error}")
+# Handler de errores
+async def global_error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.error(f"Ocurrió un error: {context.error}")
     try:
         if update and update.effective_message:
             if update.callback_query and update.callback_query.message:
@@ -259,86 +232,94 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif update.message:
                 await update.message.reply_text(ERROR_MESSAGES["generic_error"])
     except Exception as e:
-        logger.error(f"Error in error handler: {e}")
+        logger.error(f"Error en el handler global: {e}")
 
+# Handler de ejemplo para abrir una Web App desde Telegram
+async def web_app_handler(update: Update, context: CallbackContext):
+    """Envía un botón que abre una Web App en el cliente de Telegram."""
+    try:
+        web_app_url = os.environ.get("WEBAPP_URL", "https://tu-dominio.com/tu_web_app")
+        button = InlineKeyboardButton("Abrir Web App", web_app=WebAppInfo(url=web_app_url))
+        markup = InlineKeyboardMarkup([[button]])
+        await update.message.reply_text("Abriendo Web App:", reply_markup=markup)
+    except Exception as e:
+        logger.error(f"Error en web_app_handler: {e}")
+        await update.message.reply_text(ERROR_MESSAGES["generic_error"])
 
 def main():
-    """Start the bot."""
+    """Inicia el bot en modo webhook para integración con Web App."""
     try:
-        # Create application
         application = Application.builder().token(TOKEN).build()
-
-        # Initialize players data
-        # Initialize an empty dictionary for players
+        # Se inicializa el diccionario de jugadores
         application.bot_data['players'] = {}
 
-        # Add command handlers
+        # Agregar handlers de comandos
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("help", help_command))
         application.add_handler(CommandHandler("stats", stats_command))
+        # Handler para abrir la Web App
+        application.add_handler(CommandHandler("webapp", web_app_handler))
         
+        # Handler para callback queries
+        application.add_handler(CallbackQueryHandler(button_handler))
         
-        # Add callback query handler
-        application.add_handler(CallbackQueryHandler(button))
+        # Handler para errores
+        application.add_error_handler(global_error_handler)
         
-        # Add error handler
-        application.add_error_handler(error_handler)
-
-        # Add premmium items
+        # Handler para items premium (usando patrón en callback_data)
         application.add_handler(CallbackQueryHandler(get_premium_item, pattern=r'^get_premium_'))
-    
-        # Set up the weekly contest
+
+        # Programar tareas (jobs)
         job_queue = application.job_queue
-        job_queue.run_once(setup_weekly_contest, when=1)  # Run setup immediately
-
-    
-
-        # Add weekly ticket check job
-        application.job_queue.run_repeating(
+        job_queue.run_once(setup_weekly_contest, when=1)  # Ejecuta el setup inmediatamente
+        
+        job_queue.run_repeating(
             check_weekly_tickets,
-            interval=86400,  # Check daily
+            interval=86400,  # Revisa diariamente
             first=10
-)
-
-        # Add premium expiry check
-        application.job_queue.run_repeating(
+        )
+        job_queue.run_repeating(
             check_premium_expiry,
-            interval=3600,  # Every hour
+            interval=3600,  # Cada hora
             first=10
         )
-        
-        
-
-        # Add daily reset check
-        application.job_queue.run_repeating(
+        job_queue.run_repeating(
             check_daily_reset,
-            interval=21600,  # Every 6 hours
+            interval=21600,  # Cada 6 horas
             first=10
         )
-
-        # Añade estos jobs después de los otros jobs existentes
-        application.job_queue.run_repeating(
-        start_weekly_contest,
-        interval=604800,  # Una semana en segundos
-        first=10
+        job_queue.run_repeating(
+            start_weekly_contest,
+            interval=604800,  # Una semana en segundos
+            first=10
+        )
+        job_queue.run_repeating(
+            end_weekly_contest,
+            interval=604800,  # Una semana en segundos
+            first=604810  # Una semana + 10 segundos después del inicio
         )
 
-        application.job_queue.run_repeating(
-        end_weekly_contest,
-        interval=604800,  # Una semana en segundos
-        first=604810  # Una semana + 10 segundos después del inicio
-        )
+        # Configuración para ejecutar el bot en modo webhook
+        USE_WEBHOOK = True  # Cambia a False si prefieres usar polling
+        if USE_WEBHOOK:
+            # Configura las variables de entorno o usa valores por defecto
+            WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://artvsmagnvs.github.io/WaterQuest.game/")
+            PORT = int(os.environ.get("PORT", "8443"))
+            print("Bot iniciado en modo webhook...")
+            application.run_webhook(
+                listen="0.0.0.0",
+                port=PORT,
+                url_path=TOKEN,
+                webhook_url=f"{WEBHOOK_URL}/{TOKEN}"
+            )
+        else:
+            print("Bot iniciado en modo polling...")
+            application.run_polling()
 
-        
- 
-        # Start the bot
-        print("Bot iniciado...")
-        application.run_polling()
-
-        return application  # Return the application for cleanup
+        return application
 
     except Exception as e:
-        logger.error(f"Error starting bot: {e}")
+        logger.error(f"Error iniciando el bot: {e}")
         return None
 
 if __name__ == '__main__':
@@ -348,7 +329,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print("\nBot detenido manualmente")
     finally:
-        # Save data on shutdown if application was created
+        # Al finalizar, guardar y respaldar los datos de cada jugador
         if app:
             user_ids = get_all_user_ids()
             for user_id in user_ids:
@@ -357,6 +338,7 @@ if __name__ == '__main__':
                     save_game_data(user_id, player_data)
                     backup_data(user_id, player_data)
             print("Datos guardados. ¡Hasta luego!")
+
 
 
 
